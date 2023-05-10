@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Fletch's Site</title>
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <h1>Fletch's Site</h1>
+    <p>Here's some content.</p>
+    <section>
+      <h3>All Stuff</h3>
+      <ul>
+        {% for project in projects %}
+          <li>
+            <a href="projects/{{ project.url }}">{{ project.name }}</a>
+            <p>{{ project.description }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  </body>
+</html>
