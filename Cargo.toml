@@ -9,6 +9,7 @@ edition = "2021"
 axum = {version = "0.6.18", features = ["ws"]}
 liquid = "0.26.1"
 notify = "5.1.0"
+railwind = "0.1.5"
 serde = "1.0.162"
 serde-xml-rs = "0.6.0"
 tokio = {version = "1.28.0", features = ["full"]}

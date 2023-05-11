@@ -7,7 +7,11 @@ mod project;
 #[tokio::main]
 async fn main() {
     // TODO: handle startup better
-    let defaulthtml_content = DefaultHtmlContent::new(&load_content().unwrap()).unwrap();
+    let mut defaulthtml_content = DefaultHtmlContent::new();
+    defaulthtml_content
+        .render(&load_content().unwrap())
+        .await
+        .unwrap();
     let defaulthtml_content = std::sync::Arc::new(tokio::sync::RwLock::new(defaulthtml_content));
 
     // Add watcher to update defaulthtml_content if any content/template changes (TODO: separate content changing from templates changing)
@@ -76,6 +80,6 @@ async fn watch_defaulthtml(
         let event = res.expect("Watcher error");
         let mut content = defaulthtml_content.write().await;
         println!("Updating content ({event:?})");
-        content.reload(&load_content().unwrap()).await.unwrap();
+        content.render(&load_content().unwrap()).await.unwrap();
     }
 }
