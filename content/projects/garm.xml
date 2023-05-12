@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+<name>Garmin Testing Device</name>
+<url>garmin</url>
+<description>Underwater testing device for Garmin dive watches and air tank sensors, controlled fully automatically using a web app.</description>
+<content>
+    This is a test project. There is no process to making it, as it's just a test.
+    Seeing how tricky it will be to make these pages in a machine-readable way (XML). We'll see!
+</content>
+<thumbnail>garm_boat.jpg</thumbnail>
+<priority>20</priority>
+</project>

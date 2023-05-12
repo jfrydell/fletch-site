@@ -7,6 +7,9 @@ pub struct Project {
     pub url: String,
     pub description: String,
     pub content: String,
+    pub thumbnail: String,
+    /// The priority of this project, used for sorting.
+    pub priority: i32,
 }
 
 impl Project {
@@ -18,6 +21,7 @@ impl Project {
             "description".into(),
             Value::scalar(self.description.clone()),
         );
+        obj.insert("thumbnail".into(), Value::scalar(self.thumbnail.clone()));
         obj.insert("content".into(), Value::scalar(self.content.clone()));
         obj
     }

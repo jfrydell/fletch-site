@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+<name>Surgery Tracking Wearable</name>
+<url>surgery</url>
+<description>A wearable device to track surgical residents in the operating room, measuring their practical experience.</description>
+<content>
+    This is another test project. It's slightly different.
+
+    Testing is fun!
+</content>
+<thumbnail>surgery_final.jpg</thumbnail>
+<priority>10</priority>
+</project>
