@@ -5,7 +5,7 @@ use axum::{
     extract::Path,
     extract::{ws::Message, State},
     http::header::CONTENT_TYPE,
-    response::{AppendHeaders, Html, IntoResponse},
+    response::{Html, IntoResponse},
     routing::get,
     Router,
 };
@@ -75,20 +75,6 @@ impl DefaultHtmlContent {
         Ok(())
     }
 
-    // Writes the basic HTML to the `defaulthtml/` directory.
-    pub fn write(&self) -> Result<(), String> {
-        // Write index
-        std::fs::write("defaulthtml/index.html", &self.index)
-            .map_err(|e| format!("Failed to write index.html file: {}", e))?;
-
-        // Write projects
-        for (url, html) in self.projects.iter() {
-            std::fs::write(format!("defaulthtml/projects/{}.html", url), html)
-                .map_err(|e| format!("Failed to write {}.html file: {}", url, e))?;
-        }
-        Ok(())
-    }
-
     /// Makes the css string from the current rendered content.
     pub fn make_css(&mut self) {
         use railwind::*;
@@ -103,6 +89,20 @@ impl DefaultHtmlContent {
             true,
             &mut vec![],
         );
+    }
+
+    // Writes the basic HTML to the `defaulthtml/` directory.
+    pub fn write(&self) -> Result<(), String> {
+        // Write index
+        std::fs::write("defaulthtml/index.html", &self.index)
+            .map_err(|e| format!("Failed to write index.html file: {}", e))?;
+
+        // Write projects
+        for (url, html) in self.projects.iter() {
+            std::fs::write(format!("defaulthtml/projects/{}.html", url), html)
+                .map_err(|e| format!("Failed to write {}.html file: {}", url, e))?;
+        }
+        Ok(())
     }
 
     // Returns an axum router for serving basic HTML, which takes the `DefaultHtmlContent` as state.
@@ -121,7 +121,7 @@ impl DefaultHtmlContent {
             }))
             .route("/css.css", get(|State(content): State<Arc<RwLock<Self>>>| async move {
                 let content = content.read().await;
-                (AppendHeaders([(CONTENT_TYPE, "text/css")]), content.css.clone())
+                ([(CONTENT_TYPE, "text/css")], content.css.clone())
             }))
             .route("/ws", get(Self::ws_handler))
     }

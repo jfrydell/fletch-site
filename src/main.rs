@@ -91,6 +91,15 @@ async fn watch_defaulthtml(
         let event = res.expect("Watcher error");
         let mut content = defaulthtml_content.write().await;
         println!("Updating content ({event:?})");
-        content.render(&load_content().unwrap()).await.unwrap();
+        let projects = match load_content() {
+            Ok(p) => p,
+            Err(e) => {
+                println!("Failed to load content: {}", e);
+                continue;
+            }
+        };
+        content.render(&projects).await.unwrap_or_else(|e| {
+            println!("Failed to render content: {}", e);
+        });
     }
 }
