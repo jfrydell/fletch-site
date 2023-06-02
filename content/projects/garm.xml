@@ -38,17 +38,42 @@
     <section>
         <title>Getting Physical</title>
         <g>
-            <p>While I can't take credit for the mechanical design or manufacturing of the testing rig's structure, making it move required finding the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
+            <p>While I <a href="https://www.grantweerts.com/garmin">can't take credit</a> for the mechanical design or manufacturing of the testing rig's structure, making it move required designing the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
             <p>For the depth adjustment, we used a winch-like system with a motorized spool lifting the tested device up and down on a telescoping pole, while rotation was achieved by rotating the entire testing rig using a motorized belt. This was done to avoid placing any electronics underwater while maintaining full control over the device's position.</p>
-            <p>For motors, we eventually chose small, high-gear-ratio DC motors (<a href="https://www.dfrobot.com/product-633.html">this one, in particular</a>) with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
+            <p>For motors, we eventually chose small, high-gear-ratio DC motors <a href="https://www.dfrobot.com/product-633.html">(this one, in particular)</a> with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
+        </g>
+    </section>
+    <section>
+        <title>Wired Control</title>
+        <g>
+            <p>Because we selected simple DC motors with encoders, achieving the precise position needed required implementing some sort of control system. While the ESP-IDF framework provides a <a href="https://github.com/espressif/idf-extra-components/tree/master/pid_ctrl">PID component,</a> I implemented mine manually on top of the ESP-IDF PWM and pulse-count functionality, which was fairly simple to do.</p>
+            <p>This ended up being very beneficial as we began testing with the entire assembly, as I ended up needing to add a decent amount of custom control logic beyond the basic assembly.This included functionality to recognize when the motor was stalling (somewhat common in early rotation testing), recognize when friction (and gearing) was sufficient to hold the spool in place without applying power, and move to specific angles efficiently by accounting for full rotations.</p>
+        </g>
+    </section>
+    <section>
+        <title>Wireless Control</title>
+        <g>
+            <p>The ideal testing workflow we were focused on providing involved controlling all testing via a laptop in an intuitive, hassle-free way. We achieved this with a fairly basic web app, served by the ESP32 that also controlled the motors themselves.</p>
+            <p>The primary testing rig's controller acted as an access point, providing a WiFi network that a laptop could connect to. It then served both the web app (created using <a href="https://picocss.com/">PicoCSS,</a> which I highly recommend) as well as a fairly basic API allowing for the depth and angle to be set, as well as the current position to be read. This makes the system very extensible, with any new systems able to integrate easily into the current API.</p>
+            <p>Because both testing rigs needed to be controlled simultaneously, the secondary one acted in station mode, connecting to the predefined WiFi network created by the primary AP rig. The station mode rig polled the primary rig periodically for updated depth position targets, matching its own position upon observing any changes.</p>
+        </g>
+    </section>
+    <section>
+        <title>Approaching Absolute Zero (Calibration)</title>
+        <g>
+            <p>Given the amount of effort put into the system's precision, accuracy was obviously a large concern. For depth accuracy, a simple startup calibration routine was sufficient, raising the rig to its known minimum depth as detected by the end of the motor's travel.</p>
+            <p>Rotation accuracy was a bigger concern, especially because verifying the device's current rotation underwater was difficult. To solve this, we used a Hall Effect Sensor placed at the top of the testing rig, detecting a magnet on the rotation mechanism. At startup, at least 5 rotations are completed to define an absolute zero point, and this point is monitored as the user rotates the device.</p>
+            <p>During testing, both calibration systems exceeded requirements, with depth calibration varying less than 0.5" and rotation by less than 2°.</p>
         </g>
     </section>
     <!--
     TODO:
     - PID Loop
+    - Hardware? (ESP, H-Bridge, PCB) Probably included elsewhere, but could be good to add H-Bridge discussion
     - ESP32 Web Server, API
     - Web App (PicoCSS)
     - "Approaching Absolute Zero (Calibration)"
+    - PCB Design
     -->
 </content>
 <thumbnail>garm_boat.jpg</thumbnail>

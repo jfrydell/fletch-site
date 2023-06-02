@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  {% block head %}
+  <title>{% block title %}Fletch Rydell{% endblock title %}</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="/defaulthtml/css.css" type="text/css">
+  {% endblock head %}
+</head>
+
+<body class="font-serif">
+{% block content %}{% endblock content %}
+</body>
+
+</html>
