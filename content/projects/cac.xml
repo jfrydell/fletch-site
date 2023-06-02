@@ -3,8 +3,13 @@
 <name>Virtual Performance</name>
 <url>virtual_performance</url>
 <description>A web app I created in 2020 to allow musicians to perform together virtually, despite COVID-19 restrictions.</description>
+<skills>
+
+</skills>
 <content>
-    None yet!
+    <section>
+        <p>None yet!</p>
+    </section>
 </content>
 <thumbnail>congressional_app.png</thumbnail>
 <priority>0</priority>

@@ -41,7 +41,7 @@ fn load_content() -> Result<Vec<project::Project>, String> {
         let path = entry.path();
         if path.is_file() {
             // Load project
-            let project: project::Project = match serde_xml_rs::from_reader(
+            let project: project::Project = match quick_xml::de::from_reader(
                 std::io::BufReader::new(std::fs::File::open(path).unwrap()),
             ) {
                 Ok(p) => p,
@@ -50,6 +50,7 @@ fn load_content() -> Result<Vec<project::Project>, String> {
                     continue;
                 }
             };
+            println!("Loaded project: {}", project.name);
             projects.push(project);
         }
     }

@@ -2,10 +2,54 @@
 <project>
 <name>Garmin Testing Device</name>
 <url>garmin</url>
-<description>Underwater testing device for Garmin dive watches and air tank sensors, controlled fully automatically using a web app.</description>
+<description>Underwater testing device for Garmin dive watches and air tank sensors, controlled automatically using a web app.</description>
+<date>2022.12-2023.05</date>
+<skills>
+    <skill>Embedded Development (ESP-IDF)</skill>
+    <skill>Frontend Web Development</skill>
+    <skill>PCB Design</skill>
+    <skill>Mechatronics</skill>
+    <skill>Control Systems</skill>
+</skills>
 <content>
-    This is a test project. There is no process to making it, as it's just a test.
-    Seeing how tricky it will be to make these pages in a machine-readable way (XML). We'll see!
+    <section>
+        <title>Overview</title>
+        <g>
+            <p>Garmin's Sonar Engineering Team creates several dive watches and air tank sensors designed to communicate with each other using their SubWave Sonar technology while underwater. Until recently, to test and calibrate these precise devices, Garmin attached them to a boat using 12 ft PVC poles, leading to several feet of deflection during testing and decreasing both accuracy and repeatability of results.</p>
+            <p>To make the testing and calibration process more stable, accurate, and consistent, I worked with a team of engineers in my EGR 102 class to design and build a new mounting system that would hold the dive watches and air tank sensors fixed in position underwater, while being controllable using a web app to set the exact depth and angular position of the devices being tested.</p>
+            <p>As electrical team lead, I personally designed the mechatronic control system, from the motors used to physically move the testing rig to the UX of the web app used by engineers while performing tests, as well as all the microcontrollers and firmware in between.</p>
+        </g>
+    </section>
+    <criteria>
+        <title>Design Criteria</title>
+        <item>
+            <title>Accuracy</title>
+            <description>Control system must move devices to within 2" of the desired depth and 5° of the desired angle, withstanding forces from the weight of the device and underwater currents</description>
+        </item>
+        <item>
+            <title>Durability</title>
+            <description>The testing system will be stored outdoors on a boat and be operated underwater, but still must be built to last without significant maintainance.</description>
+        </item>
+        <item>
+            <title>Usability</title>
+            <description>Several test engineers will work with the system, so it should be fairly easy to use and understand, working with the engineers' goals and workflow rather than against them. In addition to human usability, it should also be easy to extend and integrate with current or future autonomous testing workflows.</description>
+        </item>
+    </criteria>
+    <section>
+        <title>Getting Physical</title>
+        <g>
+            <p>While I can't take credit for the mechanical design or manufacturing of the testing rig's structure, making it move required finding the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
+            <p>For the depth adjustment, we used a winch-like system with a motorized spool lifting the tested device up and down on a telescoping pole, while rotation was achieved by rotating the entire testing rig using a motorized belt. This was done to avoid placing any electronics underwater while maintaining full control over the device's position.</p>
+            <p>For motors, we eventually chose small, high-gear-ratio DC motors (<a href="https://www.dfrobot.com/product-633.html">this one, in particular</a>) with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
+        </g>
+    </section>
+    <!--
+    TODO:
+    - PID Loop
+    - ESP32 Web Server, API
+    - Web App (PicoCSS)
+    - "Approaching Absolute Zero (Calibration)"
+    -->
 </content>
 <thumbnail>garm_boat.jpg</thumbnail>
 <priority>20</priority>

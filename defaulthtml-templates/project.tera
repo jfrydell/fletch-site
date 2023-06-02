@@ -6,6 +6,6 @@
   </head>
   <body>
     <h1>{{ project.name }}</h1>
-    {{ project.content }}
+    {{ project.content | json_encode | safe }}
   </body>
 </html>
