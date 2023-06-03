@@ -2,9 +2,9 @@
 {% block title %}{{ project.name }} - {{ super() }}{% endblock title %}
 
 {% block content %}
-<header class="font-sans mx-auto bg-slate-800 text-white text-center">
+<header class="font-sans mx-auto bg-slate-800 text-white text-center px-12">
   <h1 class="text-5xl font-bold tracking-wide pt-14">{{ project.name }}</h1>
-  <p class="text-lg p-5 pb-14 font-thin italic tracking-wide">{{ project.description }}</p>
+  <p class="text-lg mt-5 pb-14 font-thin italic tracking-wide">{{ project.description }}</p>
 </header>
 {% for section in project.content["$value"] %}
 {% if section.section %}
@@ -17,7 +17,7 @@
 {% endblock content %}
 
 {% macro make_section(section) %}
-<section class="p-8 mx-12">
+<section class="py-8 md:p-8 mx-12 lg:max-w-screen-lg lg:mx-auto">
   <h2 class="text-3xl font-bold tracking-wide text-sky-600">{{ section.title }}</h2>
   {% set elements = section["$value"] %}
   {% for element in elements %}
@@ -42,13 +42,13 @@
 
 
 {% macro make_criteria(criteria) %}
-<section class="p-8 bg-slate-800 flex items-center gap-12 pr-32">
-  <div class="m-16">
-    <h2 class="text-3xl text-sky-200 font-bold -rotate-45">{{ criteria.title }}</h2>
+<section class="p-8 bg-slate-800 flex items-center flex-col lg:flex-row gap-6 lg:gap-12 lg:pr-16 xl:pr-32">
+  <div class="mt-8 lg:m-16 lg:w-36">
+    <h2 class="text-3xl text-sky-200 text-center font-bold lg:-rotate-45">{{ criteria.title }}</h2>
   </div>
   {% set items = criteria["item"] %}
   {% for item in items %}
-  <div class="text-white">
+  <div class="text-white max-w-xl mx-6 lg:mx-0">
     <h4 class="text-2xl text-center">{{item.title}}</h4>
     <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
   </div>
