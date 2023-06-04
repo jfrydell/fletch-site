@@ -62,6 +62,13 @@ pub enum Element {
     },
     #[serde(rename = "p")]
     Paragraph(Text),
+    #[serde(rename = "img")]
+    Image {
+        #[serde(rename = "@src")]
+        src: String,
+        #[serde(rename = "@alt")]
+        alt: String,
+    },
 }
 
 /// Some text, consisting of several `TextElement`s.

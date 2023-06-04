@@ -17,13 +17,16 @@
 {% endblock content %}
 
 {% macro make_section(section) %}
-<section class="py-8 md:p-8 mx-12 lg:max-w-screen-lg lg:mx-auto">
-  <h2 class="text-3xl font-bold tracking-wide text-sky-600">{{ section.title }}</h2>
-  {% set elements = section["$value"] %}
+{% set elements = section["$value"] %}
+<section class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }}">
   {% for element in elements %}
-  {{ self::make_element(element = element) }}
+  <div>
+    {% if loop.first %}
+    <h2 class="text-3xl font-bold tracking-wide text-sky-600">{{ section.title }}</h2>
+    {% endif %}
+    {{ self::make_element(element = element) }}
+  </div>
   {% endfor %}
-  {# elements | length #} {# How many elements in this section (used to layout grid) #}
 </section>
 {% endmacro %}
 
@@ -37,6 +40,9 @@
 </div>
 {% elif element.p %}
 <p>{{ self::render_text(text = element.p) }}</p>
+{% elif element.img %}
+<img class="mx-auto w-2/3 max-w-md lg:w-fit" src="/assets/images/{{ element.img['@src'] }}" {# TODO: is max-w-md
+  necessary? #} alt="{{ element.img['@alt'] }}">
 {% endif %}
 {% endmacro %}
 

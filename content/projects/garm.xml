@@ -19,9 +19,10 @@
             <p>To make the testing and calibration process more stable, accurate, and consistent, I worked with a team of engineers in my EGR 102 class to design and build a new mounting system that would hold the dive watches and air tank sensors fixed in position underwater, while being controllable using a web app to set the exact depth and angular position of the devices being tested.</p>
             <p>As electrical team lead, I personally designed the mechatronic control system, from the motors used to physically move the testing rig to the UX of the web app used by engineers while performing tests, as well as all the microcontrollers and firmware in between.</p>
         </g>
+        <img src="garm_installed.jpeg" alt="The testing device, installed on the boat." />
     </section>
     <criteria>
-        <title>Design Criteria</title>
+        <title>Design Goals</title>
         <item>
             <title>Accuracy</title>
             <description>Control system must move devices to within 2" of the desired depth and 5° of the desired angle, withstanding forces from the weight of the device and underwater currents</description>
