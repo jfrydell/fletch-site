@@ -18,7 +18,7 @@
 
 {% macro make_section(section) %}
 {% set elements = section["$value"] %}
-<section class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }}">
+<section class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4">
   {% for element in elements %}
   <div>
     {% if loop.first %}
@@ -41,8 +41,7 @@
 {% elif element.p %}
 <p>{{ self::render_text(text = element.p) }}</p>
 {% elif element.img %}
-<img class="mx-auto w-2/3 max-w-md lg:w-fit" src="/assets/images/{{ element.img['@src'] }}" {# TODO: is max-w-md
-  necessary? #} alt="{{ element.img['@alt'] }}">
+<img class="mx-auto w-2/3 max-w-md" src="/assets/images/{{ element.img['@src'] }}" alt="{{ element.img['@alt'] }}">
 {% endif %}
 {% endmacro %}
 
