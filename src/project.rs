@@ -68,6 +68,7 @@ pub enum Element {
         src: String,
         #[serde(rename = "@alt")]
         alt: String,
+        caption: Option<Text>,
     },
 }
 

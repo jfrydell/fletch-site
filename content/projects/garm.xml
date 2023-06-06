@@ -19,7 +19,9 @@
             <p>To make the testing and calibration process more stable, accurate, and consistent, I worked with a team of engineers in my EGR 102 class to design and build a new mounting system that would hold the dive watches and air tank sensors fixed in position underwater, while being controllable using a web app to set the exact depth and angular position of the devices being tested.</p>
             <p>As electrical team lead, I personally designed the mechatronic control system, from the motors used to physically move the testing rig to the UX of the web app used by engineers while performing tests, as well as all the microcontrollers and firmware in between.</p>
         </g>
-        <img src="garm_installed.jpeg" alt="The testing device, installed on the boat." />
+        <img src="garm_installed.jpeg" alt="A long pole-shaped device, made of aluminum and fiberglass rebar, mounted to the side of a boat.">
+            <caption>The new testing system installed on the boat.</caption>
+        </img>
     </section>
     <criteria>
         <title>Design Goals</title>
@@ -43,6 +45,9 @@
             <p>For the depth adjustment, we used a winch-like system with a motorized spool lifting the tested device up and down on a telescoping pole, while rotation was achieved by rotating the entire testing rig using a motorized belt. This was done to avoid placing any electronics underwater while maintaining full control over the device's position.</p>
             <p>For motors, we eventually chose small, high-gear-ratio DC motors <a href="https://www.dfrobot.com/product-633.html">(this one, in particular)</a> with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
         </g>
+        <img src="garm_depthmotor.jpg" alt="A small motor driving an alumninum spool with coated steel wire wrapped around it. The motor and spool are mounted to a mounting plate, and the wire continues downward through the testing device.">
+            <caption>The depth control mechanism, including the winch system used to adjust depth and the DC motor with encoder powering it.</caption>
+        </img>
     </section>
     <section>
         <title>Wired Control</title>
