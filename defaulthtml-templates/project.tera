@@ -2,7 +2,7 @@
 {% block title %}{{ project.name }} - {{ super() }}{% endblock title %}
 
 {% block content %}
-<header class="font-sans mx-auto bg-slate-800 text-white text-center px-12">
+<header class="font-sans mx-auto bg-slate-800 text-white text-center px-12 dark:bg-inherit">
   <h1 class="text-5xl font-bold tracking-wide pt-14">{{ project.name }}</h1>
   <p class="text-lg mt-5 pb-14 font-thin italic tracking-wide">{{ project.description }}</p>
 </header>
@@ -18,11 +18,15 @@
 
 {% macro make_section(section) %}
 {% set elements = section["$value"] %}
-<section class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4">
+<section
+  class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed dark:text-slate-400">
   {% for element in elements %}
   <div>
     {% if loop.first %}
-    <h2 class="text-3xl font-bold tracking-wide text-sky-600">{{ section.title }}</h2>
+    <h2 class="text-3xl mb-2 font-bold text-sky-600 dark:text-sky-600 dark:font-normal dark:tracking-wider">
+      {{
+      section.title }}
+    </h2>
     {% endif %}
     {{ self::make_element(element = element) }}
   </div>
@@ -54,11 +58,12 @@
 {% macro make_criteria(criteria) %}
 <section class="p-8 bg-slate-800 flex items-center flex-col lg:flex-row gap-6 lg:gap-12 lg:pr-16 xl:pr-32">
   <div class="mt-8 lg:m-16 lg:w-36">
-    <h2 class="text-3xl text-sky-200 text-center font-bold lg:-rotate-45">{{ criteria.title }}</h2>
+    <h2 class="text-3xl text-sky-200 text-center font-bold lg:-rotate-45 dark:dark:text-sky-600">{{ criteria.title }}
+    </h2>
   </div>
   {% set items = criteria["item"] %}
   {% for item in items %}
-  <div class="text-white max-w-xl mx-6 lg:mx-0">
+  <div class="text-white max-w-xl mx-6 lg:mx-0 dark:text-slate-300">
     <h4 class="text-2xl text-center">{{item.title}}</h4>
     <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
   </div>

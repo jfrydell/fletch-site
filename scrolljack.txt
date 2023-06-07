@@ -1,3 +1,8 @@
+INSPIRATION:
+https://codepen.io/hexagoncircle/pen/LYpaPQp
+https://codepen.io/petebarr/pen/qBOeVoz
+https://codepen.io/GreenSock/pen/dyGyopR/823312ec3785be7b25315ec2efd517d8 (decent basic)
+
 HTML:
 
 <div class="container">

@@ -11,7 +11,7 @@
   {% endblock head %}
 </head>
 
-<body class="font-serif">
+<body class="font-serif dark:bg-slate-900">
   {% block content %}{% endblock content %}
 </body>
 
