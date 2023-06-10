@@ -102,6 +102,10 @@ impl DefaultHtmlContent {
             std::fs::write(format!("defaulthtml/projects/{}.html", url), html)
                 .map_err(|e| format!("Failed to write {}.html file: {}", url, e))?;
         }
+
+        // Write CSS
+        std::fs::write("defaulthtml/css.css", &self.css)
+            .map_err(|e| format!("Failed to write css.css file: {}", e))?;
         Ok(())
     }
 

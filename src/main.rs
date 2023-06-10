@@ -22,12 +22,22 @@ async fn main() {
     let app = Router::new()
         .nest(
             "/defaulthtml/",
-            DefaultHtmlContent::axum_router().with_state(defaulthtml_content),
+            DefaultHtmlContent::axum_router().with_state(defaulthtml_content.clone()),
         )
         .nest_service("/assets/images/", ServeDir::new("content/images/"));
 
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(app.into_make_service())
+        .with_graceful_shutdown(async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to install CTRL+C signal handler");
+            defaulthtml_content
+                .read()
+                .await
+                .write()
+                .expect("Failed to write content");
+        })
         .await
         .unwrap();
 }
