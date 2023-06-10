@@ -89,6 +89,16 @@ impl DefaultHtmlContent {
             true,
             &mut vec![],
         );
+
+        // Hijack dark mode to use the "class" strategy
+        while let Some(i) = self.css.find("@media (prefers-color-scheme: dark) {") {
+            // Replace media selector with class selector
+            let line_end = self.css[i..]
+                .find("\n")
+                .expect("No newline after dark mode selector");
+            self.css
+                .replace_range(i..i + line_end, "@media screen { .dark");
+        }
     }
 
     // Writes the basic HTML to the `defaulthtml/` directory.

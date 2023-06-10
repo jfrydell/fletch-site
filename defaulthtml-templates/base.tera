@@ -8,10 +8,28 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/defaulthtml/css.css" type="text/css">
+  <script>
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    function toggleDark() {
+      if (document.documentElement.classList.contains('dark')) {
+        localStorage.theme = 'light'
+        document.documentElement.classList.remove('dark')
+      } else {
+        localStorage.theme = 'dark'
+        document.documentElement.classList.add('dark')
+      }
+    }
+  </script>
   {% endblock head %}
 </head>
 
 <body class="font-serif dark:bg-slate-900">
+  <button onclick="toggleDark()" class="bg-white fixed right-0 rounded-bl-md">Swap
+    Dark/Light</button>
   {% block content %}{% endblock content %}
 </body>
 
