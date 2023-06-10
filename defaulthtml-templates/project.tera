@@ -56,7 +56,8 @@
 
 
 {% macro make_criteria(criteria) %}
-<section class="p-8 bg-slate-800 flex items-center flex-col lg:flex-row gap-6 lg:gap-12 lg:pr-16 xl:pr-32">
+<section
+  class="p-8 bg-slate-800 flex items-center justify-center flex-col lg:flex-row gap-6 lg:gap-12 lg:pr-16 xl:pr-32">
   <div class="mt-8 lg:m-16 lg:w-36">
     <h2 class="text-3xl text-sky-200 text-center font-bold lg:-rotate-45 dark:dark:text-sky-600">{{ criteria.title }}
     </h2>
