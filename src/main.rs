@@ -4,9 +4,12 @@ use tower_http::services::ServeDir;
 
 mod defaulthtml;
 mod project;
+mod ssh;
 
 #[tokio::main]
 async fn main() {
+    tokio::spawn(ssh::main());
+
     // TODO: handle startup better
     let mut defaulthtml_content = DefaultHtmlContent::new();
     defaulthtml_content
