@@ -1,49 +1,113 @@
 use std::{
-    sync::{atomic::AtomicUsize, Arc},
-    vec,
+    collections::BTreeMap,
+    sync::{atomic::AtomicUsize, Arc, RwLock, Weak},
 };
 
 use anyhow::Result;
 use async_trait::async_trait;
 use russh::{
     server::{self, Msg, Session},
-    Channel, ChannelId, CryptoVec, Disconnect, Pty,
+    Channel, ChannelId, CryptoVec, Disconnect,
 };
 use russh_keys::key;
 
-pub async fn main() {
+/// The rendered content for the SSH server.
+#[derive(Debug)]
+pub struct SshContent {
+    /// The root directory of the virtual filesystem
+    pub root: Arc<Directory>,
+}
+impl SshContent {
+    /// Render the SSH content from the given content.
+    pub fn render(&mut self, _content: &crate::Content) {
+        unimplemented!()
+    }
+}
+impl Default for SshContent {
+    fn default() -> Self {
+        let root = Arc::new(Directory {
+            path: "/".to_string(),
+            parent: None,
+            directories: BTreeMap::new(),
+            files: BTreeMap::new(),
+        });
+        Self { root }
+    }
+}
+
+/// A directory in the virtual filesystem, containing a list of files and other directories.
+#[derive(Debug)]
+pub struct Directory {
+    /// The full path to this directory.
+    pub path: String,
+    /// The parent of this directory (`None` if root).
+    pub parent: Option<Weak<Directory>>,
+    /// Subdirectories of this directory, indexed by name.
+    pub directories: BTreeMap<String, Arc<Directory>>,
+    /// Files in this directory, indexed by name.
+    pub files: BTreeMap<String, String>,
+}
+
+static WELCOME_MESSAGE: &[u8] = "=====================================\r
+|========== FLETCH RYDELL ==========|\r
+|========== *ssh edition* ==========|\r
+|===================================|\r
+|Welcome to the SSH version of my   |\r
+|website! This is a work in progress|\r
+|but I hope you enjoy it!           |\r
+|===================================|\r
+|To navigate, use the 'ls' and 'cd' |\r
+|commands to see the available pages|\r
+|and 'cat' or 'vi' to view them.    |\r
+|Type 'exit' or 'logout' to leave.  |\r
+=====================================\r
+"
+.as_bytes();
+
+pub async fn main(content: Arc<RwLock<SshContent>>) {
     let mut config = server::Config::default();
     config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
-    let server = Server::default();
+    let server = Server::new(content);
     server::run(Arc::new(config), ("0.0.0.0", 2222), server)
         .await
         .expect("Running SSH server failed");
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Server {
     id: AtomicUsize,
+    content: Arc<RwLock<SshContent>>,
+}
+impl Server {
+    fn new(content: Arc<RwLock<SshContent>>) -> Self {
+        Self {
+            id: AtomicUsize::new(0),
+            content,
+        }
+    }
 }
 impl server::Server for Server {
     type Handler = SshSession;
     fn new_client(&mut self, addr: Option<std::net::SocketAddr>) -> Self::Handler {
         let id = self.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         println!("New client from {:?} assigned id {}", addr, id);
-        SshSession::new(id)
+        SshSession::new(id, Arc::clone(&self.content))
     }
 }
 
-#[derive(Default)]
 pub struct SshSession {
     id: usize,
     channel: Option<Channel<Msg>>,
     shell: Shell,
+    content: Arc<RwLock<SshContent>>,
 }
 impl SshSession {
-    fn new(id: usize) -> Self {
+    fn new(id: usize, content: Arc<RwLock<SshContent>>) -> Self {
         Self {
             id,
-            ..Default::default()
+            channel: None,
+            shell: Shell::default(),
+            content,
         }
     }
 }
@@ -79,12 +143,11 @@ impl server::Handler for SshSession {
 
     async fn channel_open_confirmation(
         self,
-        id: ChannelId,
+        _id: ChannelId,
         _max_packet_size: u32,
         _window_size: u32,
-        mut session: Session,
+        session: Session,
     ) -> Result<(Self, Session), Self::Error> {
-        session.data(id, CryptoVec::from(self.shell.prompt()));
         Ok((self, session))
     }
 
@@ -94,7 +157,9 @@ impl server::Handler for SshSession {
         mut session: Session,
     ) -> Result<(Self, Session), Self::Error> {
         println!("Client {} requested shell", self.id);
-        session.data(channel, CryptoVec::from(vec![62, 32]));
+
+        session.data(channel, Vec::from(WELCOME_MESSAGE).into());
+        session.data(channel, CryptoVec::from(self.shell.prompt()));
         Ok((self, session))
     }
 
@@ -113,13 +178,17 @@ impl server::Handler for SshSession {
             response.extend(r);
             if let Some(command) = command {
                 println!("Client {} ran command: {:?}", self.id, command);
-                if command == "exit" {
-                    session.disconnect(
-                        Disconnect::ByApplication,
-                        "Ctrl-C received, ending session",
-                        "",
-                    );
-                    return Ok((self, session));
+                match command.as_str() {
+                    "exit" | "logout" => {
+                        session.disconnect(Disconnect::ByApplication, "Goodbye!", "");
+                        return Ok((self, session));
+                    }
+                    "ls" => {
+                        response.extend(b"index.html\r\n");
+                    }
+                    _ => {
+                        response.extend(format!("{}: command not found\r\n", command).as_bytes());
+                    }
                 }
                 response.extend(self.shell.prompt());
             }

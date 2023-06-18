@@ -6,9 +6,11 @@ mod defaulthtml;
 mod project;
 mod ssh;
 
+type Content = Vec<project::Project>;
+
 #[tokio::main]
 async fn main() {
-    tokio::spawn(ssh::main());
+    // tokio::spawn(ssh::main());
 
     // TODO: handle startup better
     let mut defaulthtml_content = DefaultHtmlContent::new();
@@ -46,7 +48,7 @@ async fn main() {
 }
 
 /// Loads all content.
-fn load_content() -> Result<Vec<project::Project>, String> {
+fn load_content() -> Result<Content, String> {
     // Get list of all projects from `content/projects`
     let mut projects = Vec::new();
     for entry in std::fs::read_dir("content/projects").unwrap() {

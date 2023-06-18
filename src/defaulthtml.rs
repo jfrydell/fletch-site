@@ -12,8 +12,6 @@ use axum::{
 use tera::Tera;
 use tokio::sync::RwLock;
 
-use crate::project::Project;
-
 /// Stores the rendered basic HTML content, for serving previews or writing to files.
 pub struct DefaultHtmlContent {
     /// `index.html` contents
@@ -41,7 +39,7 @@ impl DefaultHtmlContent {
     }
 
     // Render the basic HTML from the given content.
-    pub async fn render(&mut self, content: &Vec<Project>) -> Result<()> {
+    pub async fn render(&mut self, content: &crate::Content) -> Result<()> {
         // Load template engine
         self.tera = Tera::new("defaulthtml-templates/**/*.tera")?;
 
