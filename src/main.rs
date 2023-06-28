@@ -10,8 +10,6 @@ type Content = Vec<project::Project>;
 
 #[tokio::main]
 async fn main() {
-    // tokio::spawn(ssh::main());
-
     // TODO: handle startup better
     let mut defaulthtml_content = DefaultHtmlContent::new();
     defaulthtml_content
@@ -19,6 +17,11 @@ async fn main() {
         .await
         .unwrap();
     let defaulthtml_content = std::sync::Arc::new(tokio::sync::RwLock::new(defaulthtml_content));
+
+    // Start SSH. TODO: add live-reloading (note that SshContent is read-only for sessions for consistent state, must notify server? otherwise Arc<RwLock<Arc<_>>> so we can edit inner Arc???)
+    let ssh_content = ssh::SshContent::new(&load_content().unwrap());
+    let ssh_content = std::sync::Arc::new(ssh_content);
+    tokio::spawn(ssh::main(ssh_content));
 
     // Add watcher to update defaulthtml_content if any content/template changes (TODO: separate content changing from templates changing)
     tokio::spawn(watch_defaulthtml(defaulthtml_content.clone()));

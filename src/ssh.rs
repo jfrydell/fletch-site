@@ -11,39 +11,80 @@ use russh::{
 };
 use russh_keys::key;
 
+use crate::project::Project;
+
+/// Convert a project into a descriptive text file.
+fn project_to_about(project: &Project) -> String {
+    format!("# {}\n\n{}\n\n", project.name, project.description)
+}
+
 /// The rendered content for the SSH server.
 #[derive(Debug)]
 pub struct SshContent {
-    /// The root directory of the virtual filesystem
-    pub root: Arc<Directory>,
+    /// The directories of the virtual filesystem, with the root first.
+    directories: Vec<Directory>,
 }
 impl SshContent {
     /// Render the SSH content from the given content.
-    pub fn render(&mut self, _content: &crate::Content) {
-        unimplemented!()
+    pub fn new(content: &crate::Content) -> Self {
+        // Get an empty content to start
+        let mut result = Self {
+            directories: vec![Directory {
+                path: "/".to_string(),
+                ..Default::default()
+            }],
+        };
+
+        // Add projects directory
+        let projects_i = result.add_child(0, "projects".to_string());
+        for project in content {
+            let project_i = result.add_child(projects_i, project.url.clone());
+            result.add_file(
+                project_i,
+                "about.txt".to_string(),
+                project_to_about(project),
+            );
+        }
+
+        result
     }
-}
-impl Default for SshContent {
-    fn default() -> Self {
-        let root = Arc::new(Directory {
-            path: "/".to_string(),
-            parent: None,
-            directories: BTreeMap::new(),
-            files: BTreeMap::new(),
-        });
-        Self { root }
+    /// Gets the directory at the given index.
+    pub fn get(&self, i: usize) -> &Directory {
+        &self.directories[i]
+    }
+    /// Add a child directory to a `Directory` specified by index, returning the index of the child.
+    fn add_child(&mut self, parent_i: usize, child_name: String) -> usize {
+        let child_i = self.directories.len();
+        let parent = &mut self.directories[parent_i];
+        let child = Directory {
+            path: {
+                let mut path = parent.path.clone();
+                path.push_str(&child_name);
+                path
+            },
+            parent: Some(parent_i),
+            ..Default::default()
+        };
+        parent.directories.insert(child_name, child_i);
+        self.directories.push(child);
+        child_i
+    }
+    /// Add a file to a `Direcotry` specified by index.
+    fn add_file(&mut self, dir_i: usize, filename: String, contents: String) {
+        let dir = &mut self.directories[dir_i];
+        dir.files.insert(filename, contents);
     }
 }
 
 /// A directory in the virtual filesystem, containing a list of files and other directories.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Directory {
-    /// The full path to this directory.
+    /// The full path to this directory, always ending in a `/`.
     pub path: String,
     /// The parent of this directory (`None` if root).
-    pub parent: Option<Weak<Directory>>,
+    pub parent: Option<usize>,
     /// Subdirectories of this directory, indexed by name.
-    pub directories: BTreeMap<String, Arc<Directory>>,
+    pub directories: BTreeMap<String, usize>,
     /// Files in this directory, indexed by name.
     pub files: BTreeMap<String, String>,
 }
@@ -64,10 +105,11 @@ static WELCOME_MESSAGE: &[u8] = "=====================================\r
 "
 .as_bytes();
 
-pub async fn main(content: Arc<RwLock<SshContent>>) {
+pub async fn main(content: Arc<SshContent>) {
     let mut config = server::Config::default();
     config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
     let server = Server::new(content);
+    println!("Starting SSH Server...");
     server::run(Arc::new(config), ("0.0.0.0", 2222), server)
         .await
         .expect("Running SSH server failed");
@@ -76,10 +118,10 @@ pub async fn main(content: Arc<RwLock<SshContent>>) {
 #[derive(Debug)]
 pub struct Server {
     id: AtomicUsize,
-    content: Arc<RwLock<SshContent>>,
+    content: Arc<SshContent>,
 }
 impl Server {
-    fn new(content: Arc<RwLock<SshContent>>) -> Self {
+    fn new(content: Arc<SshContent>) -> Self {
         Self {
             id: AtomicUsize::new(0),
             content,
@@ -99,15 +141,17 @@ pub struct SshSession {
     id: usize,
     channel: Option<Channel<Msg>>,
     shell: Shell,
-    content: Arc<RwLock<SshContent>>,
+    content: Arc<SshContent>,
+    current_dir: usize,
 }
 impl SshSession {
-    fn new(id: usize, content: Arc<RwLock<SshContent>>) -> Self {
+    fn new(id: usize, content: Arc<SshContent>) -> Self {
         Self {
             id,
             channel: None,
             shell: Shell::default(),
             content,
+            current_dir: 0,
         }
     }
 }
@@ -178,14 +222,36 @@ impl server::Handler for SshSession {
             response.extend(r);
             if let Some(command) = command {
                 println!("Client {} ran command: {:?}", self.id, command);
-                match command.as_str() {
+                let command_name = command.split(' ').next().unwrap_or("");
+                match command_name {
                     "exit" | "logout" => {
                         session.disconnect(Disconnect::ByApplication, "Goodbye!", "");
                         return Ok((self, session));
                     }
                     "ls" => {
-                        response.extend(b"index.html\r\n");
+                        let current_dir = self.content.get(self.current_dir);
+                        for (name, _) in current_dir.directories.iter() {
+                            response.extend(format!("{}\r\n", name).as_bytes());
+                        }
+                        for (name, _) in current_dir.files.iter() {
+                            response.extend(format!("{}\r\n", name).as_bytes());
+                        }
                     }
+                    "cd" => {
+                        let dir = command.split(' ').nth(1).unwrap_or("");
+                        let current_dir = self.content.get(self.current_dir);
+                        if dir == ".." {
+                            if let Some(id) = current_dir.parent {
+                                self.current_dir = id;
+                            }
+                        } else if let Some(&id) = current_dir.directories.get(dir) {
+                            self.current_dir = id;
+                        } else {
+                            response
+                                .extend(format!("\"{}\": no such directory\r\n", dir).as_bytes());
+                        }
+                    }
+                    "" => {}
                     _ => {
                         response.extend(format!("{}: command not found\r\n", command).as_bytes());
                     }
@@ -259,13 +325,13 @@ impl Shell {
                 (vec![13, 10], Some(command))
             }
             8 | 127 => {
-                // Backspace, remove character and send [backspace, delete, backspace] to overwrite
+                // Backspace, remove character from buffer and overwrite as necessary
                 if self.cursor > 0 {
                     line.remove(self.cursor - 1);
                     self.cursor -= 1;
                     if self.cursor == line.len() {
                         // At end of line, so go back, overwrite with space, go back again
-                        (vec![8, 127, 8], None)
+                        (vec![8, 32, 8], None)
                     } else {
                         // Middle of line, so go back, overwrite with rest of line, go back to original location
                         let mut response = vec![8];
