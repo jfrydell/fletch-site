@@ -1,6 +1,7 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
-    sync::{atomic::AtomicUsize, Arc, RwLock, Weak},
+    sync::{atomic::AtomicUsize, Arc},
 };
 
 use anyhow::Result;
@@ -14,8 +15,9 @@ use russh_keys::key;
 use crate::project::Project;
 
 /// Convert a project into a descriptive text file.
-fn project_to_about(project: &Project) -> String {
-    format!("# {}\n\n{}\n\n", project.name, project.description)
+fn project_to_about(project: &Project) -> File {
+    let contents = format!("# {}\r\n\r\n{}", project.name, project.description);
+    File::new(project.name.clone(), contents)
 }
 
 /// The rendered content for the SSH server.
@@ -52,6 +54,26 @@ impl SshContent {
     pub fn get(&self, i: usize) -> &Directory {
         &self.directories[i]
     }
+    /// Gets the directory at the given path.
+    pub fn dir_at(&self, path: &str) -> Option<&Directory> {
+        let mut dir = &self.directories[0];
+        for part in path.split('/') {
+            if part.is_empty() || part == "." {
+                continue;
+            }
+            if part == ".." {
+                if let Some(parent) = dir.parent {
+                    dir = &self.directories[parent];
+                }
+                continue;
+            }
+            dir = match dir.directories.get(part) {
+                Some(i) => &self.directories[*i],
+                None => return None,
+            };
+        }
+        Some(dir)
+    }
     /// Add a child directory to a `Directory` specified by index, returning the index of the child.
     fn add_child(&mut self, parent_i: usize, child_name: String) -> usize {
         let child_i = self.directories.len();
@@ -69,8 +91,8 @@ impl SshContent {
         self.directories.push(child);
         child_i
     }
-    /// Add a file to a `Direcotry` specified by index.
-    fn add_file(&mut self, dir_i: usize, filename: String, contents: String) {
+    /// Add a file to a `Directory` specified by index.
+    fn add_file(&mut self, dir_i: usize, filename: String, contents: File) {
         let dir = &mut self.directories[dir_i];
         dir.files.insert(filename, contents);
     }
@@ -86,7 +108,31 @@ pub struct Directory {
     /// Subdirectories of this directory, indexed by name.
     pub directories: BTreeMap<String, usize>,
     /// Files in this directory, indexed by name.
-    pub files: BTreeMap<String, String>,
+    pub files: BTreeMap<String, File>,
+}
+
+/// A file in the virtual filesystem, containing an array of lines.
+#[derive(Debug, Default)]
+pub struct File {
+    /// The name of the file.
+    pub name: String,
+    /// The raw contents of the file as a `String`.
+    pub contents: String,
+    /// The contents of the file, as an array of lines.
+    pub lines: Vec<String>,
+}
+impl File {
+    pub fn new(name: String, contents: String) -> Self {
+        let lines: Vec<String> = contents.split("\r\n").map(|s| s.to_string()).collect();
+        Self {
+            name,
+            contents,
+            lines,
+        }
+    }
+    pub fn raw_contents(&self) -> &[u8] {
+        self.contents.as_bytes()
+    }
 }
 
 static WELCOME_MESSAGE: &[u8] = "=====================================\r
@@ -143,6 +189,8 @@ pub struct SshSession {
     shell: Shell,
     content: Arc<SshContent>,
     current_dir: usize,
+    term_size: (u32, u32),
+    running_app: Option<Box<dyn RunningApp>>,
 }
 impl SshSession {
     fn new(id: usize, content: Arc<SshContent>) -> Self {
@@ -152,6 +200,8 @@ impl SshSession {
             shell: Shell::default(),
             content,
             current_dir: 0,
+            term_size: (80, 24), // Just a guess, will be updated on connect anyway (TODO: make Option to do this right)
+            running_app: None,
         }
     }
 }
@@ -195,6 +245,24 @@ impl server::Handler for SshSession {
         Ok((self, session))
     }
 
+    async fn pty_request(
+        mut self,
+        _channel: ChannelId,
+        _term: &str,
+        col_width: u32,
+        row_height: u32,
+        _pix_width: u32,
+        _pix_height: u32,
+        _modes: &[(russh::Pty, u32)],
+        session: Session,
+    ) -> Result<(Self, Session), Self::Error> {
+        println!(
+            "got pty request (see russh/server/mod.rs: 497 for default impl, not sure if needed)"
+        );
+        self.term_size = (col_width, row_height);
+        Ok((self, session))
+    }
+
     async fn shell_request(
         self,
         channel: ChannelId,
@@ -218,53 +286,237 @@ impl server::Handler for SshSession {
         // Process data
         let mut response = vec![];
         for i in data {
-            let (r, command) = self.shell.process(*i);
-            response.extend(r);
-            if let Some(command) = command {
-                println!("Client {} ran command: {:?}", self.id, command);
-                let command_name = command.split(' ').next().unwrap_or("");
-                match command_name {
-                    "exit" | "logout" => {
-                        session.disconnect(Disconnect::ByApplication, "Goodbye!", "");
-                        return Ok((self, session));
-                    }
-                    "ls" => {
-                        let current_dir = self.content.get(self.current_dir);
-                        for (name, _) in current_dir.directories.iter() {
-                            response.extend(format!("{}\r\n", name).as_bytes());
-                        }
-                        for (name, _) in current_dir.files.iter() {
-                            response.extend(format!("{}\r\n", name).as_bytes());
-                        }
-                    }
-                    "cd" => {
-                        let dir = command.split(' ').nth(1).unwrap_or("");
-                        let current_dir = self.content.get(self.current_dir);
-                        if dir == ".." {
-                            if let Some(id) = current_dir.parent {
-                                self.current_dir = id;
+            match self.running_app {
+                None => {
+                    let (r, command) = self.shell.process(*i);
+                    response.extend(r);
+                    if let Some(command) = command {
+                        println!("Client {} ran command: {:?}", self.id, command);
+                        let command_name = command.split(' ').next().unwrap_or("");
+                        match command_name {
+                            "exit" | "logout" => {
+                                session.disconnect(Disconnect::ByApplication, "Goodbye!", "");
+                                return Ok((self, session));
                             }
-                        } else if let Some(&id) = current_dir.directories.get(dir) {
-                            self.current_dir = id;
-                        } else {
-                            response
-                                .extend(format!("\"{}\": no such directory\r\n", dir).as_bytes());
+                            "ls" => {
+                                let current_dir = self.content.get(self.current_dir);
+                                for (name, _) in current_dir.directories.iter() {
+                                    response.extend(format!("{}\r\n", name).as_bytes());
+                                }
+                                for (name, _) in current_dir.files.iter() {
+                                    response.extend(format!("{}\r\n", name).as_bytes());
+                                }
+                            }
+                            "cd" => {
+                                let dir = command.split(' ').nth(1).unwrap_or("");
+                                let current_dir = self.content.get(self.current_dir);
+                                if dir == ".." {
+                                    if let Some(id) = current_dir.parent {
+                                        self.current_dir = id;
+                                    }
+                                } else if let Some(&id) = current_dir.directories.get(dir) {
+                                    self.current_dir = id;
+                                } else {
+                                    response.extend(
+                                        format!("\"{}\": no such directory\r\n", dir).as_bytes(),
+                                    );
+                                }
+                            }
+                            "cat" => {
+                                let file = command.split(' ').nth(1).unwrap_or("");
+                                let current_dir = self.content.get(self.current_dir);
+                                if let Some(content) = current_dir.files.get(file) {
+                                    response.extend(content.raw_contents());
+                                } else {
+                                    response.extend(
+                                        format!("\"{}\": no such file\r\n", file).as_bytes(),
+                                    );
+                                }
+                            }
+                            "vi" => match Vim::startup(&self, command) {
+                                Ok((running_app, mut startup_resp)) => {
+                                    self.running_app = Some(running_app);
+                                    response.append(&mut startup_resp);
+                                }
+                                Err(mut error_resp) => {
+                                    response.append(&mut error_resp);
+                                }
+                            },
+                            "" => {}
+                            _ => {
+                                response.extend(
+                                    format!("{}: command not found\r\n", command).as_bytes(),
+                                );
+                            }
                         }
-                    }
-                    "" => {}
-                    _ => {
-                        response.extend(format!("{}: command not found\r\n", command).as_bytes());
+                        if self.running_app.is_none() {
+                            response.extend(self.shell.prompt());
+                        }
                     }
                 }
-                response.extend(self.shell.prompt());
+                Some(ref mut app) => {
+                    if *i == 3 {
+                        // CTRL-C, exit, clear screen, and reprompt
+                        response.append(
+                            &mut TerminalUtils::new().clear().move_cursor(0, 0).into_data(),
+                        );
+                        response.extend(self.shell.prompt());
+                        self.running_app = None;
+                    } else {
+                        response.extend(app.data(*i));
+                    }
+                }
             }
         }
 
-        // Send back to client?
+        // Send back to client
         let data = CryptoVec::from(response);
         session.data(channel, data);
 
         Ok((self, session))
+    }
+}
+
+/// A trait providing functionality for a running app (state machine), including the ability
+/// to receive a byte of data and startup functionality.
+trait RunningApp: Send {
+    /// Starts the app, returning the initial state along with some initial reponse data
+    /// (basically a starting render) on sucess. On failure, returns a response to send
+    /// as if as a normal command (e.g. "file not found").
+    fn startup(
+        session: &SshSession,
+        command: String,
+    ) -> Result<(Box<dyn RunningApp>, Vec<u8>), Vec<u8>>
+    where
+        Self: Sized;
+    /// Processes one byte of data from the user input, returning the response.
+    fn data(&mut self, data: u8) -> Vec<u8>;
+}
+
+/// The state of a running instance of vim.
+struct Vim<'a> {
+    /// The content of the ssh server, kept to ensure that `self.file` stays alive.
+    _ssh_content: Arc<SshContent>,
+    /// Current cursor position (x,y), where (0,0) is the top left of the file.
+    cursor_pos: (usize, usize),
+    /// Current scroll position (x,y), where (0,0) is the top left of the file.
+    /// Horizontal scrolling doesn't actually happen due to line wrap, but if a line
+    /// is long moving so far right we reach the next line requires a vertical scroll, at
+    /// which point the x component is updated.
+    scroll_pos: (usize, usize),
+    /// The last-known size of the terminal, in characters. We store it so we can detect resizes.
+    term_size: (u16, u16),
+    /// The file we are currently viewing.
+    file: &'a File,
+}
+impl<'a> Vim<'a> {
+    /// Helper method to clear and rerender the file, returning the necessary response to do so.
+    ///
+    /// Assumes that `cursor_pos` is onscreen for current `scroll_pos`.
+    fn render(&self) -> Vec<u8> {
+        // Clear the screen and move the cursor
+        let mut response = TerminalUtils::new().clear().move_cursor(0, 0).into_data();
+
+        // Output the file's contents, beginning at the scrolled location.
+        // `lines` iterates through the file.
+        // `current_line` holds the line of the file we're processing now.
+        // `current_line_char` specifies where in the file's line this screen's line starts.
+        let mut lines = self.file.lines.iter().skip(self.scroll_pos.1);
+        let mut current_line = lines.next();
+        let mut current_line_start = self.scroll_pos.0;
+        for y in 0..self.term_size.1 - 1 {
+            response.append(&mut TerminalUtils::new().move_cursor(0, y).into_data());
+            match current_line {
+                None => {
+                    // The file is over, print placeholder
+                    response.push(b'~');
+                }
+                Some(line) if line.len() >= current_line_start + self.term_size.0 as usize => {
+                    // Our current line will wrap, just print what we can and update `current_line_start`
+                    response.extend(
+                        line[current_line_start..current_line_start + self.term_size.0 as usize]
+                            .as_bytes(),
+                    );
+                    current_line_start += self.term_size.0 as usize;
+                }
+                Some(line) => {
+                    // Our current line will fit on this line, so print the rest of it and step forward
+                    response.extend(line[current_line_start..].as_bytes());
+                    current_line = lines.next();
+                    current_line_start = 0;
+                }
+            }
+        }
+        response.extend(b"\r\n: not really vim, Ctrl-H for help");
+
+        // Reset the cursor, finding coordinates relative to screen (stored relative to file)
+        // Weird casts are needed because if one line takes up the whole screen, `screen_x` can initially
+        // equal total "area" of screen, only being reduced after division/modulo by width.
+        let screen_y = self.cursor_pos.1 - self.scroll_pos.1;
+        let screen_x = self.cursor_pos.0 - self.scroll_pos.0;
+        let screen_y = (screen_y + screen_x / (self.term_size.0 as usize)) as u16;
+        let screen_x = (screen_x % self.term_size.0 as usize) as u16;
+        response.append(
+            &mut TerminalUtils::new()
+                .move_cursor(screen_x, screen_y)
+                .into_data(),
+        );
+
+        response
+    }
+}
+impl<'a> RunningApp for Vim<'a> {
+    fn startup(
+        session: &SshSession,
+        command: String,
+    ) -> Result<(Box<(dyn RunningApp + 'static)>, Vec<u8>), Vec<u8>> {
+        let content = session.content.clone();
+        let full_path = command
+            .split(' ')
+            .nth(1)
+            .ok_or_else(|| Vec::from(b"vi: usage: vi <filename>\r\n" as &[u8]))?;
+        let (path, filename) = match full_path.rsplit_once('/') {
+            Some((directory, filename)) => {
+                if directory.starts_with('/') || directory.is_empty() {
+                    // Absolute path, no need for current path addition
+                    (Cow::Borrowed(directory), filename)
+                } else {
+                    let mut d = session.content.directories[session.current_dir]
+                        .path
+                        .clone();
+                    d.push_str(directory);
+                    (Cow::Owned(d), filename)
+                }
+            }
+            None => (
+                Cow::Borrowed(
+                    session.content.directories[session.current_dir]
+                        .path
+                        .as_str(),
+                ),
+                full_path,
+            ),
+        };
+        let file = content
+            .dir_at(&path)
+            .and_then(|d| d.files.get(filename))
+            .ok_or_else(|| format!("vi: cannot open \"{}\": No such file\r\n", full_path))?;
+        let vim = Vim {
+            _ssh_content: Arc::clone(&content),
+            cursor_pos: (0, 0),
+            scroll_pos: (0, 0),
+            term_size: (
+                session.term_size.0.try_into().unwrap(),
+                session.term_size.1.try_into().unwrap(),
+            ),
+            // SAFETY: `file` references `content`, which is guarenteed to live as long as this `Vim` object due to the `_ssh_content` reference
+            file: unsafe { &*(file as *const File) },
+        };
+        let response = vim.render();
+        Ok((Box::new(vim), response))
+    }
+    fn data(&mut self, data: u8) -> Vec<u8> {
+        todo!()
     }
 }
 
@@ -471,5 +723,68 @@ impl Shell {
             self.current_history
                 .push(self.history[self.history.len() - self.current_history.len()].clone())
         }
+    }
+}
+
+/// Some utilities for fancy terminal output.
+///
+/// ## Example
+/// ```
+/// let buffer: Vec<u8> = TerminalUtils::new(80, 24).place(40, 12).into_data();
+/// ```
+#[allow(unused)]
+#[derive(Clone)]
+struct TerminalUtils {
+    pos: Option<(u16, u16)>,
+    data: Vec<u8>,
+}
+
+#[allow(unused)]
+impl TerminalUtils {
+    /// Creates a new terminal utility for the given width and height.
+    fn new() -> Self {
+        Self {
+            pos: None,
+            data: vec![],
+        }
+    }
+
+    /// Places a character `c` at a location (x,y).
+    fn place(mut self, x: u16, y: u16, c: u8) -> Self {
+        // Move cursor to new position if necessary, and update it
+        if self.pos != Some((x, y)) {
+            self = self.move_cursor(x, y);
+        }
+        self.pos = Some((x + 1, y));
+
+        // Write symbol to queue of data to be sent
+        self.data.push(c);
+        self
+    }
+    /// Hides the cursor.
+    fn hide_cursor(mut self) -> Self {
+        self.data.extend(b"\x1b[?25l");
+        self
+    }
+    /// Shows the cursor.
+    fn show_cursor(mut self) -> Self {
+        self.data.extend(b"\x1b[?25h");
+        self
+    }
+    /// Moves the cursor.
+    fn move_cursor(mut self, x: u16, y: u16) -> Self {
+        self.data
+            .extend(format!("\x1b[{};{}H", y + 1, x + 1).as_bytes());
+        self
+    }
+    /// Clears the screen (doesn't move cursor).
+    fn clear(mut self) -> Self {
+        self.data.extend(b"\x1b[2J");
+        self
+    }
+
+    /// Gets the data for all the operations done.
+    fn into_data(self) -> Vec<u8> {
+        self.data
     }
 }
