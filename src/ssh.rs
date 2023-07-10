@@ -194,7 +194,6 @@ impl server::Server for Server {
 
 pub struct SshSession {
     id: usize,
-    channel: Option<Channel<Msg>>,
     shell: Shell,
     content: Arc<SshContent>,
     current_dir: usize,
@@ -205,7 +204,6 @@ impl SshSession {
     fn new(id: usize, content: Arc<SshContent>) -> Self {
         Self {
             id,
-            channel: None,
             shell: Shell::default(),
             content,
             current_dir: 0,
@@ -221,19 +219,11 @@ impl server::Handler for SshSession {
 
     async fn channel_open_session(
         mut self,
-        channel: Channel<Msg>,
+        _channel: Channel<Msg>,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
-        match self.channel.as_mut() {
-            Some(c) => {
-                println!("Client {} already has a channel open ({:?})", self.id, c);
-                Ok((self, false, session))
-            }
-            None => {
-                self.channel = Some(channel);
-                Ok((self, true, session))
-            }
-        }
+        // TODO QUESTION: what do i have to do with these channels?
+        Ok((self, true, session))
     }
 
     async fn auth_publickey(
