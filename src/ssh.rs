@@ -16,7 +16,13 @@ use crate::project::Project;
 
 /// Convert a project into a descriptive text file.
 fn project_to_about(project: &Project) -> File {
-    let contents = format!("# {}\r\n\r\n{}", project.name, project.description);
+    let big_contents = serde_json::to_string_pretty(project)
+        .unwrap()
+        .replace('\n', "\r\n");
+    let contents = format!(
+        "# {}\r\n\r\n{}\r\n\r\n{}",
+        project.name, project.description, big_contents
+    );
     File::new(project.name.clone(), contents)
 }
 
@@ -418,13 +424,14 @@ struct Vim<'a> {
     _ssh_content: Arc<SshContent>,
     /// Current cursor position (x,y), where (0,0) is the top left of the file.
     cursor_pos: (usize, usize),
-    /// Current scroll position (x,y), where (0,0) is the top left of the file.
-    /// Horizontal scrolling doesn't actually happen due to line wrap, but if a line
-    /// is long moving so far right we reach the next line requires a vertical scroll, at
-    /// which point the x component is updated.
+    /// Current scroll position (line, subline), giving the line at the top of the screen and
+    /// (if we've scrolled horizontally through a wrapping line) how many screen-widths of the
+    /// line we've scrolled past already.
     scroll_pos: (usize, usize),
     /// The current size of the terminal, in characters.
     term_size: (u16, u16),
+    /// The available height for the file (not including bottom text, usually term_size.1 - 1).
+    available_height: usize,
     /// The file we are currently viewing.
     file: &'a File,
 }
@@ -440,11 +447,11 @@ impl<'a> Vim<'a> {
         // `lines` iterates through the file.
         // `current_line` holds the line of the file we're processing now.
         // `current_line_char` specifies where in the file's line this screen's line starts.
-        let mut lines = self.file.lines.iter().skip(self.scroll_pos.1);
+        let mut lines = self.file.lines.iter().skip(self.scroll_pos.0);
         let mut current_line = lines.next();
-        let mut current_line_start = self.scroll_pos.0;
-        for y in 0..self.term_size.1 - 1 {
-            response.append(&mut TerminalUtils::new().move_cursor(0, y).into_data());
+        let mut current_line_start = self.scroll_pos.1 * self.term_size.0 as usize;
+        for y in 0..self.available_height {
+            response.append(&mut TerminalUtils::new().move_cursor(0, y as u16).into_data());
             match current_line {
                 None => {
                     // The file is over, print placeholder
@@ -468,20 +475,89 @@ impl<'a> Vim<'a> {
         }
         response.extend(b"\r\n: Ctrl-H for help");
 
-        // Reset the cursor, finding coordinates relative to screen (stored relative to file)
-        // Weird casts are needed because if one line takes up the whole screen, `screen_x` can initially
-        // equal total "area" of screen, only being reduced after division/modulo by width.
-        let screen_y = self.cursor_pos.1 - self.scroll_pos.1;
-        let screen_x = self.cursor_pos.0 - self.scroll_pos.0;
-        let screen_y = (screen_y + screen_x / (self.term_size.0 as usize)) as u16;
-        let screen_x = (screen_x % self.term_size.0 as usize) as u16;
+        // Reset the cursor, first finding screen coordinates. We assume that the current scroll is valid,
+        // so we cast using `as`. If the coordinates are out of bounds, this is a bug / unconsidered edge case
+        // where there are no valid coordinates, but `as` won't crash, just behave strangely.
+        let (screen_x, screen_y) = self.get_cursor_screen();
         response.append(
             &mut TerminalUtils::new()
-                .move_cursor(screen_x, screen_y)
+                .move_cursor(screen_x as u16, screen_y as u16)
                 .into_data(),
         );
 
         response
+    }
+
+    /// Moves the cursor to the position in `cursor_pos`, scrolling and rerendering if necessary.
+    fn update_cursor(&mut self) -> Vec<u8> {
+        // Adjust to screen coordinates, and rescroll if they don't fit
+        let mut must_rerender = false;
+        let (screen_x, screen_y) = loop {
+            let (screen_x, screen_y) = self.get_cursor_screen();
+            if screen_y < 0 {
+                // Must scroll up, first by subline then by line
+                if self.scroll_pos.1 > 0 {
+                    self.scroll_pos.1 -= 1;
+                } else {
+                    self.scroll_pos.0 -= 1;
+                }
+            } else if screen_y >= self.available_height as isize {
+                // Must scroll down, by subline if possible (requires enough room in line)
+                if (self.scroll_pos.1 + 1) * (self.term_size.0 as usize)
+                    < self.file.lines[self.scroll_pos.0].len()
+                {
+                    self.scroll_pos.1 += 1;
+                } else {
+                    self.scroll_pos.1 = 0;
+                    self.scroll_pos.0 += 1;
+                }
+            } else {
+                break (screen_x as u16, screen_y as u16);
+            }
+            must_rerender = true;
+        };
+
+        // Render the new cursor, doing a full rerender if we scrolled.
+        if must_rerender {
+            self.render()
+        } else {
+            TerminalUtils::new()
+                .move_cursor(screen_x, screen_y)
+                .into_data()
+        }
+    }
+
+    /// Helper to get the screen position of the cursor from the current `cursor_pos`, `scroll_pos`, and `term_size`.
+    /// If this returns an out-of-bounds point, scrolling should be adjusted.
+    fn get_cursor_screen(&self) -> (isize, isize) {
+        // If cursor is behind first line of screen, or on it but left of scroll_pos, are above screen, so return (0, -1)
+        if self.cursor_pos.1 < self.scroll_pos.0
+            || self.cursor_pos.1 == self.scroll_pos.0
+                && self.cursor_pos.0 < self.scroll_pos.1 * self.term_size.0 as usize
+        {
+            return (0, -1);
+        }
+        // Find the first line onscreen, and count how many lines until we get to the current line, including wrapping.
+        // Start at `-self.scroll_pos.1` because first line may start above screen.
+        let mut screen_y = -(self.scroll_pos.1 as isize);
+        for line in self
+            .file
+            .lines
+            .iter()
+            .skip(self.scroll_pos.0)
+            .take(self.cursor_pos.1 - self.scroll_pos.0)
+        {
+            screen_y += line.len() as isize / self.term_size.0 as isize + 1;
+        }
+        // Find the effective x position, snapping back to the end of short lines
+        let effective_x =
+            self.cursor_pos
+                .0
+                .min(self.file.lines[self.cursor_pos.1].len().max(1) - 1) as isize;
+        // If effective x position is off screen, we will wrap, so adjust y and reduce x accordingly
+        screen_y += effective_x / self.term_size.0 as isize;
+        dbg!(screen_y);
+        (effective_x % self.term_size.0 as isize, screen_y)
     }
 }
 impl<'a> RunningApp for Vim<'a> {
@@ -528,6 +604,7 @@ impl<'a> RunningApp for Vim<'a> {
                 session.term_size.0.try_into().unwrap(),
                 session.term_size.1.try_into().unwrap(),
             ),
+            available_height: session.term_size.1 as usize - 1,
             // SAFETY: `file` references `content`, which is guarenteed to live as long as this `Vim` object due to the `_ssh_content` reference
             file: unsafe { &*(file as *const File) },
         };
@@ -535,10 +612,43 @@ impl<'a> RunningApp for Vim<'a> {
         Ok((Box::new(vim), response))
     }
     fn data(&mut self, data: u8) -> Vec<u8> {
-        todo!()
+        match data {
+            b'h'..=b'l' => {
+                // Cursor movement
+                let delta = match data {
+                    b'h' => (-1, 0),
+                    b'j' => (0, 1),
+                    b'k' => (0, -1),
+                    b'l' => (1, 0),
+                    _ => unreachable!(),
+                };
+                // Get the new coordinates, clamped to the file's range.
+                let new_y = (self.cursor_pos.1 as isize + delta.1 as isize)
+                    .clamp(0, self.file.lines.len() as isize - 1)
+                    as usize;
+                let new_x = (self.cursor_pos.0 as isize + delta.0 as isize).max(0) as usize;
+                self.cursor_pos = (new_x, new_y);
+                // Update the cursor
+                self.update_cursor()
+            }
+            b'$' => {
+                // Move to end of line by setting cursor x to high value (not too high to avoid isize overflow)
+                self.cursor_pos.0 = usize::MAX / 4;
+                self.update_cursor()
+            }
+            _ => {
+                println!("data '{data:?}' not implemented for vim");
+                vec![]
+            }
+        }
     }
     fn resize(&mut self, width: u32, height: u32) -> Vec<u8> {
         self.term_size = (width as u16, height as u16);
+        self.available_height = height as usize - 1;
+
+        // Update scroll position to maintain wrapping invariant (start at beginning of line)
+        let width = width as usize;
+        self.scroll_pos.0 = (self.cursor_pos.0 / width) * width;
         self.render()
     }
 }
