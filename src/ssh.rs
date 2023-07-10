@@ -87,6 +87,9 @@ impl SshContent {
         let child = Directory {
             path: {
                 let mut path = parent.path.clone();
+                if parent_i != 0 {
+                    path.push('/');
+                }
                 path.push_str(&child_name);
                 path
             },
@@ -556,7 +559,6 @@ impl<'a> Vim<'a> {
                 .min(self.file.lines[self.cursor_pos.1].len().max(1) - 1) as isize;
         // If effective x position is off screen, we will wrap, so adjust y and reduce x accordingly
         screen_y += effective_x / self.term_size.0 as isize;
-        dbg!(screen_y);
         (effective_x % self.term_size.0 as isize, screen_y)
     }
 }
