@@ -275,6 +275,23 @@ impl server::Handler for SshSession {
         Ok((self, session))
     }
 
+    async fn window_change_request(
+        mut self,
+        channel: ChannelId,
+        col_width: u32,
+        row_height: u32,
+        _pix_width: u32,
+        _pix_height: u32,
+        mut session: Session,
+    ) -> Result<(Self, Session), Self::Error> {
+        self.term_size = (col_width, row_height);
+        if let Some(ref mut running_app) = self.running_app {
+            let resp = running_app.resize(col_width, row_height);
+            session.data(channel, CryptoVec::from(resp));
+        }
+        Ok((self, session))
+    }
+
     async fn data(
         mut self,
         channel: ChannelId,
@@ -391,6 +408,8 @@ trait RunningApp: Send {
         Self: Sized;
     /// Processes one byte of data from the user input, returning the response.
     fn data(&mut self, data: u8) -> Vec<u8>;
+    /// Processes a resize request from the client, returning the response.
+    fn resize(&mut self, width: u32, height: u32) -> Vec<u8>;
 }
 
 /// The state of a running instance of vim.
@@ -404,7 +423,7 @@ struct Vim<'a> {
     /// is long moving so far right we reach the next line requires a vertical scroll, at
     /// which point the x component is updated.
     scroll_pos: (usize, usize),
-    /// The last-known size of the terminal, in characters. We store it so we can detect resizes.
+    /// The current size of the terminal, in characters.
     term_size: (u16, u16),
     /// The file we are currently viewing.
     file: &'a File,
@@ -447,7 +466,7 @@ impl<'a> Vim<'a> {
                 }
             }
         }
-        response.extend(b"\r\n: not really vim, Ctrl-H for help");
+        response.extend(b"\r\n: Ctrl-H for help");
 
         // Reset the cursor, finding coordinates relative to screen (stored relative to file)
         // Weird casts are needed because if one line takes up the whole screen, `screen_x` can initially
@@ -517,6 +536,10 @@ impl<'a> RunningApp for Vim<'a> {
     }
     fn data(&mut self, data: u8) -> Vec<u8> {
         todo!()
+    }
+    fn resize(&mut self, width: u32, height: u32) -> Vec<u8> {
+        self.term_size = (width as u16, height as u16);
+        self.render()
     }
 }
 
