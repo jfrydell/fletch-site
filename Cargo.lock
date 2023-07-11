@@ -537,6 +537,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "futures",
  "hyper",
  "notify",
  "quick-xml",

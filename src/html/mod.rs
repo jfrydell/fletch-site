@@ -148,20 +148,36 @@ impl HtmlServer {
         State(server): State<Arc<Self>>,
     ) -> impl IntoResponse {
         // Subscribe to the broadcast channel for websocket events
-        let mut rx = server.websocket_tx.subscribe();
+        let mut reload_rx = server.websocket_tx.subscribe();
 
         // Once the ws is ready, listen for events on the channel
-        ws.on_upgrade(|mut socket| async move {
+        ws.on_upgrade(|socket| async move {
+            use futures::{SinkExt, StreamExt};
             println!("Socket connected, listening for live-reloads.");
-            tokio::spawn(async move {
-                let _ = rx.recv().await;
-                socket
+
+            // Split the socket into a sender and receiver
+            let (mut socket_tx, mut socket_rx) = socket.split();
+
+            // Wait for reload event or socket close
+            tokio::select!(
+                _ = reload_rx.recv() => {
+                    socket_tx
                     .send(ws::Message::Binary(vec![]))
                     .await
                     .unwrap_or_else(|e| {
                         println!("Failed to send live-reload to socket: {e}");
                     });
-            });
+                }
+                _ = async {
+                    while let Some(m) = socket_rx.next().await {
+                        if matches!(m, Ok(ws::Message::Close(_))) {
+                            break;
+                        }
+                    }
+                } => {
+                    println!("Reload socket closed");
+                }
+            );
         })
     }
 }
