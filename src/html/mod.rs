@@ -1,11 +1,8 @@
-use std::{
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-};
+use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use axum::{
-    extract::{Path, State},
+    extract::{ws, Path, State},
     http::{header, Request},
     middleware::Next,
     response::{Html, IntoResponse},
@@ -18,67 +15,77 @@ use tower_http::services::ServeDir;
 mod defaulthtml;
 
 /// Runs the HTML service, given a broadcast channel to notify it of content changes.
-pub async fn main(mut rx: broadcast::Receiver<()>) -> Result<()> {
-    // Create the HTML server and Axum router (app)
+pub async fn main(rx: broadcast::Receiver<()>) -> Result<Infallible> {
+    // Create initial server
     let server = Arc::new(HtmlServer::new(&crate::CONTENT.read().unwrap()).await?);
-    let app = Arc::clone(&server).router();
 
-    // Create a task to run the server
-    let run_server = async {
-        axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], 3000)))
-            .serve(app.into_make_service())
-            .await
-            .map_err(|e| eprintln!("Server error: {}", e))
-    };
-
-    // Create a task to listen for global content changes, reloading when they occur
-    let global_reload = async {
-        while let Ok(_) = rx.recv().await {
-            match server
-                .refresh_content(&crate::CONTENT.read().unwrap())
-                .await
-            {
-                Ok(_) => println!("Reloaded HTML content"),
-                Err(e) => println!("Failed to reload HTML content: {e}"),
-            }
-            server.reload_clients().await;
-        }
-    };
-
-    // Create a task to listen for local content (template) changes, hard reloading when they occur
-    let local_reload =
-        crate::watch_path(std::path::Path::new("defaulthtml-templates/"), || async {
-            match server
-                .refresh_content_hard(&crate::CONTENT.read().unwrap())
-                .await
-            {
-                Ok(_) => println!("Hard-reloaded HTML content"),
-                Err(e) => println!("Failed to hard-reload HTML content: {e}"),
-            }
-            server.reload_clients().await;
-        });
-
-    // Run server and live-reload tasks
-    tokio::join!(run_server, global_reload, local_reload);
-
-    Ok(())
+    // Run server, global change listener, and local change listener. If any of them return an error, return it.
+    tokio::select!(
+        e = Arc::clone(&server).run() => e,
+        e = server.listen_global_changes(rx) => e,
+        e = server.listen_local_changes() => e,
+    )
 }
 
 /// Holds all state needed by the Axum router, exposing it through interior mutability for access for reloads.
 pub struct HtmlServer {
     /// Content to serve
     content: RwLock<HtmlContent>,
-    /// List of websockets to send to when content changes
-    websockets: Mutex<Vec<tokio::sync::mpsc::Sender<axum::extract::ws::Message>>>,
+    /// Broadcaster that sends a message to all connected websockets
+    websocket_tx: broadcast::Sender<()>,
 }
 impl HtmlServer {
     async fn new(content: &crate::Content) -> Result<Self> {
         Ok(Self {
             content: RwLock::new(HtmlContent::new(content).await?),
-            websockets: Mutex::new(Vec::new()),
+            websocket_tx: broadcast::channel(1).0,
         })
     }
 
+    /// Run the server, running forever unless an error occurs.
+    async fn run(self: Arc<Self>) -> Result<Infallible> {
+        axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], 3000)))
+            .serve(self.router().into_make_service())
+            .await?;
+        #[allow(unreachable_code)]
+        Ok(unreachable!(
+            "Server shouldn't shutdown unless an error occurs"
+        ))
+    }
+
+    /// Listens for global content changes from the broadcast channel, reloading when they occur.
+    async fn listen_global_changes(&self, mut rx: broadcast::Receiver<()>) -> Result<Infallible> {
+        loop {
+            match rx.recv().await {
+                Ok(_) => {}
+                Err(broadcast::error::RecvError::Closed) => {
+                    anyhow::bail!("Global content change broadcast channel closed");
+                }
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    println!("Html server lagging behind global content changes");
+                    continue;
+                }
+            };
+            match self.refresh_content(&crate::CONTENT.read().unwrap()).await {
+                Ok(_) => println!("Reloaded HTML content"),
+                Err(e) => println!("Failed to reload HTML content: {e}"),
+            }
+            self.reload_clients();
+        }
+    }
+
+    /// Listens for local content (template) changes, hard reloading when they occur.
+    async fn listen_local_changes(&self) -> Result<Infallible> {
+        crate::watch_path(std::path::Path::new("defaulthtml-templates/"), || async {
+            self.refresh_content_hard(&crate::CONTENT.read().unwrap())
+                .await?;
+            self.reload_clients();
+            Ok(())
+        })
+        .await
+    }
+
+    /// Creates the Axum router for the HTML server.
     fn router(self: Arc<Self>) -> Router {
         Router::new()
             .route(
@@ -127,34 +134,33 @@ impl HtmlServer {
     }
 
     /// Reloads all connected clients.
-    async fn reload_clients(&self) -> Result<()> {
-        let ws: Vec<_> = std::mem::take(self.websockets.lock().unwrap().as_mut());
-        for tx in ws {
-            tx.send(axum::extract::ws::Message::Binary(vec![0])).await?;
-        }
-        Ok(())
+    fn reload_clients(&self) {
+        let n = match self.websocket_tx.send(()) {
+            Ok(n) => n,
+            Err(_) => 0,
+        };
+        println!("Reloaded {n} clients");
     }
 
     /// Handles websocket connections, adding them to a queue to update when content changes.
     async fn ws_handler(
-        ws: axum::extract::ws::WebSocketUpgrade,
+        ws: ws::WebSocketUpgrade,
         State(server): State<Arc<Self>>,
     ) -> impl IntoResponse {
-        // Create a channel for sending messages to the websocket.
-        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-        // Add the channel to the list of websockets to send to when content changes.
-        // After one live-reload message is sent, it will be removed, as the client should reconnect with a new socket.
-        server.websockets.lock().unwrap().push(tx);
+        // Subscribe to the broadcast channel for websocket events
+        let mut rx = server.websocket_tx.subscribe();
 
         // Once the ws is ready, listen for events on the channel
         ws.on_upgrade(|mut socket| async move {
             println!("Socket connected, listening for live-reloads.");
             tokio::spawn(async move {
-                if let Some(msg) = rx.recv().await {
-                    socket.send(msg).await.unwrap_or_else(|e| {
+                let _ = rx.recv().await;
+                socket
+                    .send(ws::Message::Binary(vec![]))
+                    .await
+                    .unwrap_or_else(|e| {
                         println!("Failed to send live-reload to socket: {e}");
                     });
-                }
             });
         })
     }
@@ -195,12 +201,12 @@ async fn add_websocket_script<B>(request: Request<B>, next: Next<B>) -> impl Int
         let body = hyper::body::to_bytes(body).await.unwrap();
         let body = String::from_utf8(body.to_vec()).unwrap();
         let body = body.replace(
-            "</body>",
+            "</head>",
             r#"<script>
                 const ws = new WebSocket(`ws://${window.location.host}/ws`);
                 ws.onmessage = () => window.location.reload();
             </script>
-            </body>"#,
+            </head>"#,
         );
         Html(body).into_response()
     } else {

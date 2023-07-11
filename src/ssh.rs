@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::BTreeMap,
+    convert::Infallible,
     sync::{atomic::AtomicUsize, Arc},
 };
 
@@ -11,6 +12,7 @@ use russh::{
     Channel, ChannelId, CryptoVec, Disconnect,
 };
 use russh_keys::key;
+use tokio::sync::broadcast;
 
 use crate::project::Project;
 
@@ -160,14 +162,19 @@ static WELCOME_MESSAGE: &[u8] = "=====================================\r
 "
 .as_bytes();
 
-pub async fn main(content: Arc<SshContent>) {
+pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
+    // TODO: add live-reload when we get message from _rx
+    let content = Arc::new(SshContent::new(&crate::CONTENT.read().unwrap()));
     let mut config = server::Config::default();
     config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
     let server = Server::new(content);
+
     println!("Starting SSH Server...");
     server::run(Arc::new(config), ("0.0.0.0", 2222), server)
         .await
         .expect("Running SSH server failed");
+    #[allow(unreachable_code)]
+    Ok(unreachable!("SSH server shouldn't exit without an error"))
 }
 
 #[derive(Debug)]

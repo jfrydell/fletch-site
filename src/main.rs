@@ -1,5 +1,6 @@
-use std::{future::Future, sync::RwLock};
+use std::{convert::Infallible, future::Future, sync::RwLock};
 
+use anyhow::{Context, Result};
 use serde::Serialize;
 use tokio::sync::broadcast;
 
@@ -17,7 +18,7 @@ static CONTENT: RwLock<Content> = RwLock::new(Content {
 });
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<Infallible> {
     // Load initial content
     *CONTENT.write().unwrap() = load_content().await.expect("Failed to load content");
 
@@ -25,38 +26,15 @@ async fn main() {
     let (tx, rx) = broadcast::channel(1);
 
     // Run all services
-    tokio::join!(html::main(rx), watch_content(tx));
-
-    /*
-    let mut defaulthtml_content = HtmlContent::new();
-    let defaulthtml_content = std::sync::Arc::new(tokio::sync::RwLock::new(defaulthtml_content));
-
-    // Start SSH. TODO: add live-reloading (note that SshContent is read-only for sessions for consistent state, must notify server? otherwise Arc<RwLock<Arc<_>>> so we can edit inner Arc???)
-    let ssh_content = ssh::SshContent::new(&&CONTENT.read().unwrap());
-    let ssh_content = std::sync::Arc::new(ssh_content);
-    tokio::spawn(ssh::main(ssh_content)).await.unwrap();
-
-    // Add watcher to update defaulthtml_content if any content/template changes (TODO: separate content changing from templates changing)
-    tokio::spawn(watch_defaulthtml(defaulthtml_content.clone()));
-
-    // Create Axum webserver to show preview
-    let app = Router::new()
-        .nest(
-            "/defaulthtml/",
-            DefaultHtmlContent::axum_router().with_state(defaulthtml_content.clone()),
-        )
-        .nest_service("/assets/images/", ServeDir::new("content/images/"));
-
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
-
-     */
+    tokio::select!(
+        e = html::main(rx.resubscribe()) => e,
+        e = ssh::main(rx) => e,
+        e = watch_content(tx) => e,
+    )
 }
 
 /// Loads all content.
-async fn load_content() -> Result<Content, String> {
+async fn load_content() -> Result<Content> {
     // Get list of all projects from `content/projects`
     let mut projects = Vec::new();
     let mut entries = tokio::fs::read_dir("content/projects").await.unwrap();
@@ -64,15 +42,8 @@ async fn load_content() -> Result<Content, String> {
         let path = entry.path();
         if path.is_file() {
             // Load project
-            let project: project::Project = match quick_xml::de::from_reader(
-                std::io::BufReader::new(std::fs::File::open(path).unwrap()),
-            ) {
-                Ok(p) => p,
-                Err(e) => {
-                    println!("Failed to load project: {}", e);
-                    continue;
-                }
-            };
+            let project: project::Project =
+                quick_xml::de::from_reader(std::io::BufReader::new(std::fs::File::open(path)?))?;
             println!("Loaded project: {}", project.name);
             projects.push(project);
         }
@@ -83,23 +54,27 @@ async fn load_content() -> Result<Content, String> {
 
 /// Watches for changes to the shared `Content` and updates the static variable as needed. On update, sends a message on
 /// a broadcast channel passed into this function.
-async fn watch_content(broadcast_tx: broadcast::Sender<()>) -> ! {
+async fn watch_content(broadcast_tx: broadcast::Sender<()>) -> Result<Infallible> {
     watch_path(std::path::Path::new("content/projects/"), || async {
         // Load content, update static variable, and send message
-        load_content().await.expect("Failed to load content");
+        let content = load_content().await?;
         println!("Content updated, broadcasting message");
-        *CONTENT.write().unwrap() = load_content().await.unwrap();
-        broadcast_tx.send(()).unwrap();
+        *CONTENT.write().unwrap() = content;
+        broadcast_tx.send(()).unwrap_or_else(|e| {
+            println!("No receivers for content update: {}", e);
+            0
+        });
+        Ok(())
     })
     .await
 }
 
 /// Watches for changes to a path, running an async callback when they occur. If another change occurs during the callback's execution,
 /// it is cancelled and retried.
-pub async fn watch_path<F, Fut>(path: &std::path::Path, on_change: F) -> !
+pub async fn watch_path<F, Fut>(path: &std::path::Path, on_change: F) -> Result<Infallible>
 where
     F: Fn() -> Fut,
-    Fut: Future<Output = ()>,
+    Fut: Future<Output = Result<()>>,
 {
     use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
@@ -113,17 +88,18 @@ where
                 .expect("Watcher send failed")
         },
         Config::default(),
-    )
-    .unwrap();
+    )?;
 
     // Watch for changes
-    watcher.watch(path, RecursiveMode::Recursive).unwrap();
+    watcher.watch(path, RecursiveMode::Recursive)?;
     println!("Listening for changes to {}", path.display());
 
     // Wait for events, running callback when they happen
     loop {
         // Wait for event, flushing all when one is seen
-        rx.recv().await.unwrap();
+        rx.recv()
+            .await
+            .context("Watcher channel closed, can't receive filesystem events")?;
         while rx.try_recv().is_ok() {}
         println!("Saw change to {}, reloading...", path.display());
 
