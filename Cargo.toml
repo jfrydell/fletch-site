@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.71"
 async-trait = "0.1.68"
 axum = {version = "0.6.18", features = ["ws"]}
+hyper = "0.14.27"
 notify = "5.1.0"
 quick-xml = { version = "0.28.2", features = ["serialize"] }
 railwind = "0.1.5"

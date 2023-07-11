@@ -34,7 +34,7 @@ pub struct SshContent {
 }
 impl SshContent {
     /// Render the SSH content from the given content.
-    pub fn new(content: &crate::Content) -> Self {
+    fn new(content: &crate::Content) -> Self {
         // Get an empty content to start
         let mut result = Self {
             directories: vec![Directory {
@@ -45,7 +45,7 @@ impl SshContent {
 
         // Add projects directory
         let projects_i = result.add_child(0, "projects".to_string());
-        for project in content {
+        for project in content.projects.iter() {
             let project_i = result.add_child(projects_i, project.url.clone());
             result.add_file(
                 project_i,
@@ -372,7 +372,7 @@ impl server::Handler for SshSession {
                 }
                 Some(ref mut app) => {
                     if *i == 3 {
-                        // CTRL-C, exit, clear screen, and reprompt
+                        // CTRL-C, exit, clear screen and reprompt
                         response.append(
                             &mut TerminalUtils::new().clear().move_cursor(0, 0).into_data(),
                         );
