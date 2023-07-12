@@ -18,7 +18,7 @@
         class="bg-white shadow-md border border-slate-200 rounded-lg mb-5 hover:scale-105 duration-200 transition-none transition-transform dark:bg-slate-800 dark:border-slate-700 dark:shadow-slate-700">
         <a href="projects/{{ project.url }}">
           <div class="h-80">
-            <img class="rounded-t-lg object-cover h-80 w-full" src="/assets/images/{{ project.thumbnail }}">
+            <img class="rounded-t-lg object-cover h-80 w-full" src="/images/{{ project.thumbnail }}">
           </div>
         </a>
         <div class="p-5">

@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::BTreeMap,
+    convert::Infallible,
     sync::{atomic::AtomicUsize, Arc},
 };
 
@@ -11,6 +12,7 @@ use russh::{
     Channel, ChannelId, CryptoVec, Disconnect,
 };
 use russh_keys::key;
+use tokio::sync::broadcast;
 
 use crate::project::Project;
 
@@ -34,7 +36,7 @@ pub struct SshContent {
 }
 impl SshContent {
     /// Render the SSH content from the given content.
-    pub fn new(content: &crate::Content) -> Self {
+    fn new(content: &crate::Content) -> Self {
         // Get an empty content to start
         let mut result = Self {
             directories: vec![Directory {
@@ -45,7 +47,7 @@ impl SshContent {
 
         // Add projects directory
         let projects_i = result.add_child(0, "projects".to_string());
-        for project in content {
+        for project in content.projects.iter() {
             let project_i = result.add_child(projects_i, project.url.clone());
             result.add_file(
                 project_i,
@@ -160,14 +162,19 @@ static WELCOME_MESSAGE: &[u8] = "=====================================\r
 "
 .as_bytes();
 
-pub async fn main(content: Arc<SshContent>) {
+pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
+    // TODO: add live-reload when we get message from _rx
+    let content = Arc::new(SshContent::new(&crate::CONTENT.read().unwrap()));
     let mut config = server::Config::default();
     config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
     let server = Server::new(content);
+
     println!("Starting SSH Server...");
     server::run(Arc::new(config), ("0.0.0.0", 2222), server)
         .await
         .expect("Running SSH server failed");
+    #[allow(unreachable_code)]
+    Ok(unreachable!("SSH server shouldn't exit without an error"))
 }
 
 #[derive(Debug)]
@@ -194,7 +201,6 @@ impl server::Server for Server {
 
 pub struct SshSession {
     id: usize,
-    channel: Option<Channel<Msg>>,
     shell: Shell,
     content: Arc<SshContent>,
     current_dir: usize,
@@ -205,7 +211,6 @@ impl SshSession {
     fn new(id: usize, content: Arc<SshContent>) -> Self {
         Self {
             id,
-            channel: None,
             shell: Shell::default(),
             content,
             current_dir: 0,
@@ -221,19 +226,11 @@ impl server::Handler for SshSession {
 
     async fn channel_open_session(
         mut self,
-        channel: Channel<Msg>,
+        _channel: Channel<Msg>,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
-        match self.channel.as_mut() {
-            Some(c) => {
-                println!("Client {} already has a channel open ({:?})", self.id, c);
-                Ok((self, false, session))
-            }
-            None => {
-                self.channel = Some(channel);
-                Ok((self, true, session))
-            }
-        }
+        // TODO QUESTION: what do i have to do with these channels?
+        Ok((self, true, session))
     }
 
     async fn auth_publickey(
@@ -382,7 +379,7 @@ impl server::Handler for SshSession {
                 }
                 Some(ref mut app) => {
                     if *i == 3 {
-                        // CTRL-C, exit, clear screen, and reprompt
+                        // CTRL-C, exit, clear screen and reprompt
                         response.append(
                             &mut TerminalUtils::new().clear().move_cursor(0, 0).into_data(),
                         );
