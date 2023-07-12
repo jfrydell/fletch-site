@@ -109,7 +109,6 @@ impl HtmlServer {
                     },
                 ),
             )
-            .layer(axum::middleware::from_fn(add_websocket_script))
             .route("/ws", get(Self::ws_handler))
             .nest("/defaulthtml", defaulthtml::Content::router())
             .with_state(self)
@@ -122,17 +121,29 @@ impl HtmlServer {
         page: Page,
         ExtractVersion(version, cookies): ExtractVersion,
     ) -> impl IntoResponse {
-        let _content = self.content.read().await;
-        dbg!(&cookies);
-        let response = match version {
-            Some(HtmlVersion::DefaultHtml) => {
-                format!("Default html because you chose it! ({page:?})</head>")
-            }
-            None => format!("Default html because no version ({page:?})"),
+        // Get the page's content from the desired version
+        let content = self.content.read().await;
+        let response_body = match version {
+            Some(HtmlVersion::DefaultHtml) => content.default.get_page(page),
+            None => content.default.get_page(page),
         };
-        let resp = (cookies, Html(response.to_string())).into_response();
-        dbg!(&resp);
-        resp
+
+        // Serve page if possible, otherwise 404
+        match response_body {
+            Some(response_body) => {
+                // Inject websocket script and serve
+                let response_body = response_body.replace(
+                    "</head>",
+                    r#"<script>
+                        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+                        ws.onmessage = () => window.location.reload();
+                    </script>
+                    </head>"#,
+                );
+                (cookies, Html(response_body)).into_response()
+            }
+            None => axum::http::StatusCode::NOT_FOUND.into_response(),
+        }
     }
 
     /// Reloads the HTML content from scratch, rebuilding templates and populating general content.
@@ -279,36 +290,10 @@ impl std::str::FromStr for HtmlVersion {
 }
 
 /// The possible pages we can serve.
+#[non_exhaustive] // for future expansion (every lookup should return Option already, so easy to do)
 #[derive(Debug, Clone)]
 pub enum Page {
     Index,
     Project(String),
     BlogPost(String),
-}
-
-// Adds a websocket script to any HTML responses, with the client reloading the page when a byte is received.
-async fn add_websocket_script<B>(request: Request<B>, next: Next<B>) -> impl IntoResponse {
-    let response = next.run(request).await;
-    if response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default()
-        .starts_with("text/html")
-    {
-        let body = response.into_body();
-        let body = hyper::body::to_bytes(body).await.unwrap();
-        let body = String::from_utf8(body.to_vec()).unwrap();
-        let body = body.replace(
-            "</head>",
-            r#"<script>
-                const ws = new WebSocket(`ws://${window.location.host}/ws`);
-                ws.onmessage = () => window.location.reload();
-            </script>
-            </head>"#,
-        );
-        Html(body).into_response()
-    } else {
-        response
-    }
 }

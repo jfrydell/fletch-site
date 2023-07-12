@@ -81,6 +81,16 @@ impl Content {
         }
     }
 
+    /// Get a page.
+    pub fn get_page(&self, page: super::Page) -> Option<String> {
+        use super::Page::*;
+        match page {
+            Index => Some(self.index.clone()),
+            Project(name) => self.projects.get(&name).cloned(),
+            _ => None,
+        }
+    }
+
     /// Serve the css.
     pub fn router() -> axum::Router<Arc<super::HtmlServer>> {
         use axum::{extract::State, routing::get, Router};
