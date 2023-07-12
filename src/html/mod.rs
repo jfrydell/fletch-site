@@ -1,14 +1,17 @@
 use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
+use async_trait::async_trait;
 use axum::{
-    extract::{ws, Path, State},
+    extract::{ws, FromRequestParts, Path, Query, State},
     http::{header, Request},
     middleware::Next,
     response::{Html, IntoResponse},
     routing::get,
     Router,
 };
+use axum_extra::extract::{cookie::Cookie, CookieJar};
+use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
 
@@ -90,25 +93,19 @@ impl HtmlServer {
         Router::new()
             .route(
                 "/",
-                get(|State(server): State<Arc<Self>>| async move {
-                    Html(server.content.read().await.default.index.clone())
-                }),
+                get(
+                    |State(server): State<Arc<Self>>, version: ExtractVersion| async move {
+                        server.get_page(Page::Index, version).await
+                    },
+                ),
             )
             .route(
                 "/projects/*path",
                 get(
-                    |Path(path): Path<String>, State(server): State<Arc<Self>>| async move {
-                        let content = server.content.read().await;
-                        content
-                            .default
-                            .projects
-                            .get(&path)
-                            .map(|s| Html(s.clone()))
-                            .ok_or(format!(
-                                "Bad Path: {} ({:?})",
-                                path,
-                                content.default.projects.keys()
-                            ))
+                    |State(server): State<Arc<Self>>,
+                     Path(path): Path<String>,
+                     version: ExtractVersion| async move {
+                        server.get_page(Page::Project(path), version).await
                     },
                 ),
             )
@@ -117,6 +114,25 @@ impl HtmlServer {
             .nest("/defaulthtml", defaulthtml::Content::router())
             .with_state(self)
             .nest_service("/images/", ServeDir::new("content/images/"))
+    }
+
+    /// Handles a request for a page, given which page and which version of content to use.
+    async fn get_page(
+        &self,
+        page: Page,
+        ExtractVersion(version, cookies): ExtractVersion,
+    ) -> impl IntoResponse {
+        let _content = self.content.read().await;
+        dbg!(&cookies);
+        let response = match version {
+            Some(HtmlVersion::DefaultHtml) => {
+                format!("Default html because you chose it! ({page:?})</head>")
+            }
+            None => format!("Default html because no version ({page:?})"),
+        };
+        let resp = (cookies, Html(response.to_string())).into_response();
+        dbg!(&resp);
+        resp
     }
 
     /// Reloads the HTML content from scratch, rebuilding templates and populating general content.
@@ -128,8 +144,7 @@ impl HtmlServer {
 
     /// Reloads the HTML content based on the new general content, without reloading HTML templates.
     async fn refresh_content(&self, new_content: &crate::Content) -> Result<()> {
-        let mut content = self.content.write().await;
-        content.refresh(new_content).await?;
+        self.content.write().await.refresh(new_content).await?;
         Ok(())
     }
 
@@ -201,6 +216,74 @@ impl HtmlContent {
         self.default.refresh(content).await?;
         Ok(())
     }
+}
+
+/// An extractor getting the desired version of the HTML content along with possibly-updated cookies. If the version is `None`,
+/// the default version should be used with a dialog to choose a version.
+struct ExtractVersion(Option<HtmlVersion>, CookieJar);
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractVersion
+where
+    S: Send + Sync,
+{
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut hyper::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        use axum::RequestPartsExt;
+
+        // Get the cookies from the request to see which version the user has set, if any.
+        let cookies: CookieJar = parts.extract().await?;
+        let version: Option<HtmlVersion> =
+            cookies.get("version").and_then(|c| c.value().parse().ok());
+
+        // Get the version from the query string, if any, overriding and setting a new cookie.
+        #[derive(Deserialize)]
+        struct QueryVersion {
+            version: HtmlVersion,
+        }
+        match parts.extract::<Query<QueryVersion>>().await {
+            Ok(Query(QueryVersion { version })) => Ok(Self(
+                Some(version),
+                cookies.add(Cookie::new("version", version.to_string())),
+            )),
+            Err(_) => Ok(Self(version, cookies)),
+        }
+    }
+}
+
+/// The possible versions of the HTML content.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum HtmlVersion {
+    #[serde(rename = "default")]
+    DefaultHtml,
+}
+impl ToString for HtmlVersion {
+    fn to_string(&self) -> String {
+        match self {
+            Self::DefaultHtml => "default".to_string(),
+        }
+    }
+}
+impl std::str::FromStr for HtmlVersion {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "default" => Ok(Self::DefaultHtml),
+            _ => Err(()),
+        }
+    }
+}
+
+/// The possible pages we can serve.
+#[derive(Debug, Clone)]
+pub enum Page {
+    Index,
+    Project(String),
+    BlogPost(String),
 }
 
 // Adds a websocket script to any HTML responses, with the client reloading the page when a byte is received.
