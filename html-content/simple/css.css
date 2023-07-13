@@ -1,0 +1,73 @@
+body {
+    background-color: black;
+    color: azure;
+    font-family: sans-serif;
+}
+
+body>header {
+    text-align: center;
+}
+
+nav a {
+    color: #00aaff;
+}
+
+nav a:hover {
+    color: #00ccff;
+}
+
+ul.unstyled {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+section {
+    margin: 1em 4em;
+}
+
+@media (max-width: 720px) {
+    section {
+        margin: 0.5em 1em;
+    }
+}
+
+.project-info {
+    margin: 1em 0em;
+    padding: 0.5em;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    border: 1px solid rgba(240, 255, 255, 0.5);
+    border-radius: 1em;
+}
+
+.project-info>h3 {
+    font-size: 1.5em;
+}
+
+.project-info>* {
+    margin: 1em 2em;
+}
+
+@media (max-width: 720px) {
+    .project-info {
+        margin: 0.5em 0em;
+        flex-direction: column;
+        justify-content: center;
+        border-radius: 0.5em;
+    }
+
+    .project-info>h3 {
+        font-size: 1em;
+    }
+
+    .project-info>* {
+        margin: 0.5em;
+    }
+}
+
+img {
+    object-fit: cover;
+}
