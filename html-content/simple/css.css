@@ -1,19 +1,35 @@
 body {
     background-color: black;
-    color: azure;
+    color: #e0eeee;
     font-family: sans-serif;
+    line-height: 1.4;
 }
 
 body>header {
     text-align: center;
+    margin-top: 2em;
 }
 
-nav a {
-    color: #00aaff;
+header>* {
+    margin: 0.1em;
 }
 
-nav a:hover {
-    color: #00ccff;
+a,
+nav a:visited {
+    color: #00aaee;
+}
+
+a:hover,
+nav a:visited:hover {
+    color: #33bbee;
+}
+
+a:visited {
+    color: #aa55ee;
+}
+
+a:visited:hover {
+    color: #bb66ee;
 }
 
 ul.unstyled {
@@ -23,18 +39,20 @@ ul.unstyled {
 }
 
 section {
-    margin: 1em 4em;
+    margin: auto;
+    padding: 1em 4em;
+    max-width: 2000px;
 }
 
 @media (max-width: 720px) {
     section {
-        margin: 0.5em 1em;
+        padding: 0.5em 1em;
     }
 }
 
 .project-info {
     margin: 1em 0em;
-    padding: 0.5em;
+    padding: 0.2em;
     display: flex;
     flex-direction: row;
     justify-content: space-around;
@@ -48,7 +66,7 @@ section {
 }
 
 .project-info>* {
-    margin: 1em 2em;
+    margin: 0.75em 1.5em;
 }
 
 @media (max-width: 720px) {
@@ -70,4 +88,30 @@ section {
 
 img {
     object-fit: cover;
+}
+
+.content-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+@media (max-width: 900px) {
+    .content-section {
+        flex-direction: column;
+    }
+}
+
+.content-section img {
+    margin: 0;
+    padding: 0;
+    width: 90%;
+}
+
+.bigitem-list>li {
+    margin: 1.5em;
+}
+
+.bigitem-list>li>* {
+    margin: 0.1em;
 }

@@ -39,9 +39,9 @@
         </item>
     </criteria>
     <section>
-        <title>Getting Physical</title>
+        <title>Physical Design</title>
         <g>
-            <p>While I <a href="https://www.grantweerts.com/garmin">can't take credit</a> for the mechanical design or manufacturing of the testing rig's structure, making it move required designing the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
+            <p>While I <a href="https://www.grantweerts.com/garmin">can't take too much credit</a> for the design or manufacturing of the testing rig's mechanical structure, making it move required designing the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
             <p>For the depth adjustment, we used a winch-like system with a motorized spool lifting the tested device up and down on a telescoping pole, while rotation was achieved by rotating the entire testing rig using a motorized belt. This was done to avoid placing any electronics underwater while maintaining full control over the device's position.</p>
             <p>For motors, we eventually chose small, high-gear-ratio DC motors <a href="https://www.dfrobot.com/product-633.html">(this one, in particular)</a> with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
         </g>
@@ -65,10 +65,10 @@
         </g>
     </section>
     <section>
-        <title>Approaching Absolute Zero (Calibration)</title>
+        <title>Calibration</title>
         <g>
             <p>Given the amount of effort put into the system's precision, accuracy was obviously a large concern. For depth accuracy, a simple startup calibration routine was sufficient, raising the rig to its known minimum depth as detected by the end of the motor's travel.</p>
-            <p>Rotation accuracy was a bigger concern, especially because verifying the device's current rotation underwater was difficult. To solve this, we used a Hall Effect Sensor placed at the top of the testing rig, detecting a magnet on the rotation mechanism. At startup, at least 5 rotations are completed to define an absolute zero point, and this point is monitored as the user rotates the device.</p>
+            <p>Rotation accuracy was a trickier problem, especially because verifying the device's current rotation underwater was difficult. To solve this, we used a Hall Effect Sensor placed at the top of the testing rig, detecting a magnet on the rotation mechanism. At startup, at least 5 rotations are completed to define an absolute zero point, and this point is monitored as the user rotates the device.</p>
             <p>During testing, both calibration systems exceeded requirements, with depth calibration varying less than 0.5" and rotation by less than 2°.</p>
         </g>
     </section>
