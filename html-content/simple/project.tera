@@ -1,0 +1,83 @@
+{% extends "base.tera" %}
+{% block title %}{{ project.name }} - {{ super() }}{% endblock title %}
+
+{% block content %}
+<header>
+  <h1>{{ project.name }}</h1>
+  <p role="doc-subtitle">{{ project.description }}</p>
+</header>
+{% for section in project.content["$value"] %}
+{% if section.section %}
+{{ self::make_section(section=section.section) }}
+{% elif section.criteria %}
+{{ self::make_criteria(criteria=section.criteria) }}
+{% endif %}
+{% endfor %}
+
+{% endblock content %}
+
+{% macro make_section(section) %}
+{% set elements = section["$value"] %}
+<section
+  class="content-section">
+  {% for element in elements %}
+  <div>
+    {% if loop.first %}
+    <h2>
+      {{ section.title }}
+    </h2>
+    {% endif %}
+    {{ self::make_element(element = element) }}
+  </div>
+  {% endfor %}
+</section>
+{% endmacro %}
+
+{# Renders an `Element` enum as part of a section #}
+{% macro make_element(element) %}
+{% if element.g %}
+<div class="space-y-2">
+  {% for subelement in element.g["$value"] %}
+  {{ self::make_element(element = subelement) }}
+  {% endfor %}
+</div>
+{% elif element.p %}
+<p>{{ self::render_text(text = element.p) }}</p>
+{% elif element.img %}
+<figure>
+  <img src="/images/{{ element.img['@src'] }}" alt="{{ element.img['@alt'] }}" width="300px">
+  {% if element.img.caption %}
+  <figcaption>{{ self::render_text(text = element.img.caption) }}</figcaption>
+  {% endif %}
+</figure>
+{% endif %}
+{% endmacro %}
+
+
+{% macro make_criteria(criteria) %}
+<section>
+  <h2>{{ criteria.title }}</h2>
+  {% set items = criteria["item"] %}
+  <ul class="bigitem-list">
+    {% for item in items %}
+    <li>
+      <h3 class="text-2xl text-center">{{item.title}}</h3>
+      <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
+    </li>
+    {%- endfor -%}
+  </ul>
+</section>
+{# items | length #} {# How many elements in this section (used to layout grid) #}
+{%- endmacro -%}
+
+{# Renderes a `Text` struct, containing a `$value` array of `TextElement`s (text and links). #}
+{% macro render_text(text) %}
+{% for element in text["$value"] %}
+{% if element["$text"] %}
+{{ element["$text"] }}
+{% elif element["a"] %}
+<a class="text-sky-600 hover:text-sky-700 visited:text-purple-700" href="{{ element.a['@href'] }}">{{
+  self::render_text(text = element["a"]) }}</a>
+{% endif %}
+{% endfor %}
+{% endmacro %}

@@ -4,8 +4,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use axum::{
     extract::{ws, FromRequestParts, Path, Query, State},
-    http::{header, Request},
-    middleware::Next,
     response::{Html, IntoResponse},
     routing::get,
     Router,
@@ -16,6 +14,7 @@ use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
 
 mod defaulthtml;
+mod simplehtml;
 
 /// Runs the HTML service, given a broadcast channel to notify it of content changes.
 pub async fn main(rx: broadcast::Receiver<()>) -> Result<Infallible> {
@@ -79,7 +78,7 @@ impl HtmlServer {
 
     /// Listens for local content (template) changes, hard reloading when they occur.
     async fn listen_local_changes(&self) -> Result<Infallible> {
-        crate::watch_path(std::path::Path::new("defaulthtml-templates/"), || async {
+        crate::watch_path(std::path::Path::new("html-content/"), || async {
             self.refresh_content_hard(&crate::CONTENT.read().unwrap())
                 .await?;
             self.reload_clients();
@@ -111,6 +110,7 @@ impl HtmlServer {
             )
             .route("/ws", get(Self::ws_handler))
             .nest("/defaulthtml", defaulthtml::Content::router())
+            .nest("/simplehtml", simplehtml::Content::router())
             .with_state(self)
             .nest_service("/images/", ServeDir::new("content/images/"))
     }
@@ -121,10 +121,15 @@ impl HtmlServer {
         page: Page,
         ExtractVersion(version, cookies): ExtractVersion,
     ) -> impl IntoResponse {
+        // Logging
+        println!("User requested page {page:?} with version {version:?}");
+
         // Get the page's content from the desired version
         let content = self.content.read().await;
         let response_body = match version {
             Some(HtmlVersion::DefaultHtml) => content.default.get_page(page),
+            Some(HtmlVersion::SimpleHtml) => content.simple.get_page(page, false),
+            Some(HtmlVersion::PureHtml) => content.simple.get_page(page, true),
             None => content.default.get_page(page),
         };
 
@@ -208,27 +213,6 @@ impl HtmlServer {
     }
 }
 
-/// Holds all the HTML content, ready to be served. The `HtmlServer` and main thread share ownership of this.
-struct HtmlContent {
-    pub default: defaulthtml::Content,
-}
-
-impl HtmlContent {
-    /// Renders the HTML content based on the given general content, from scratch.
-    async fn new(content: &crate::Content) -> Result<Self> {
-        Ok(Self {
-            default: defaulthtml::Content::new(content).await?,
-        })
-    }
-
-    /// Reloads the HTML content based on the given general content, without recreating the HTML content object itself.
-    /// This should be used when the general content changes, but the HTML specific content (templates, etc.) does not.
-    async fn refresh(&mut self, content: &crate::Content) -> Result<()> {
-        self.default.refresh(content).await?;
-        Ok(())
-    }
-}
-
 /// An extractor getting the desired version of the HTML content along with possibly-updated cookies. If the version is `None`,
 /// the default version should be used with a dialog to choose a version.
 struct ExtractVersion(Option<HtmlVersion>, CookieJar);
@@ -265,16 +249,47 @@ where
     }
 }
 
+/// Holds all the HTML content, ready to be served. The `HtmlServer` and main thread share ownership of this.
+struct HtmlContent {
+    pub default: defaulthtml::Content,
+    pub simple: simplehtml::Content,
+}
+
+impl HtmlContent {
+    /// Renders the HTML content based on the given general content, from scratch.
+    async fn new(content: &crate::Content) -> Result<Self> {
+        let (default, simple) = tokio::try_join!(
+            defaulthtml::Content::new(content),
+            simplehtml::Content::new(content)
+        )?;
+        Ok(Self { default, simple })
+    }
+
+    /// Reloads the HTML content based on the given general content, without recreating the HTML content object itself.
+    /// This should be used when the general content changes, but the HTML specific content (templates, etc.) does not.
+    async fn refresh(&mut self, content: &crate::Content) -> Result<()> {
+        self.default.refresh(content).await?;
+        self.simple.refresh(content).await?;
+        Ok(())
+    }
+}
+
 /// The possible versions of the HTML content.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum HtmlVersion {
     #[serde(rename = "default")]
     DefaultHtml,
+    #[serde(rename = "simple")]
+    SimpleHtml,
+    #[serde(rename = "pure")]
+    PureHtml,
 }
 impl ToString for HtmlVersion {
     fn to_string(&self) -> String {
         match self {
             Self::DefaultHtml => "default".to_string(),
+            Self::SimpleHtml => "simple".to_string(),
+            Self::PureHtml => "pure".to_string(),
         }
     }
 }
@@ -284,6 +299,8 @@ impl std::str::FromStr for HtmlVersion {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "default" => Ok(Self::DefaultHtml),
+            "simple" => Ok(Self::SimpleHtml),
+            "pure" => Ok(Self::PureHtml),
             _ => Err(()),
         }
     }

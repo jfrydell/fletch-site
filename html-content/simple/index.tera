@@ -1,0 +1,25 @@
+{% extends "base.tera" %}
+{% block title %} Home - {{ super() }}{% endblock title %}
+
+{% block content %}
+<header>
+  <h1>Fletch Rydell</h1>
+  <p role="doc-subtitle">Electrical Engineer at Duke University</p>
+</header>
+<section class="text-slate-900 dark:text-slate-200">
+  <header class="p-5 text-center">
+    <h2>Projects</h3>
+      <p role="doc-subtitle">Here's some of the stuff I've done:</p>
+  </header>
+  <ul class="unstyled">
+    {% for project in projects %}
+    <li class="project-info">
+      <h3>{{ project.name }}</h3>
+      <p>{{ project.description }} <a href="/projects/{{ project.url }}">Read more...</a></p>
+      <img class="rounded-t-lg object-cover h-80 w-full" src="/images/{{ project.thumbnail }}" width="200px"
+        height="100px" alt="Thumbnail for {{ project.name }}">
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock content %}
