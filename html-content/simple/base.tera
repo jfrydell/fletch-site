@@ -14,7 +14,7 @@
 <body>
   <nav>
     <a href="/">Home</a>
-    <a href="/version">Change Theme</a>
+    <a href="/themes">Change Theme</a>
   </nav>
   {% block content %}{% endblock content %}
 </body>

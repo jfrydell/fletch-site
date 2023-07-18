@@ -28,15 +28,28 @@
 </head>
 
 <body class="font-serif dark:bg-slate-900">
-  <button onclick="toggleDark()" class="bg-white fixed right-0 rounded-bl-md">Swap
-    Dark/Light</button>
-  
   {% block header %}
   <header class="font-sans mx-auto bg-slate-800 text-white text-center dark:bg-inherit">
     <h1 class="text-5xl font-bold tracking-wide pt-14">{% block header_title %}{% endblock %}</h1>
-    <p class="text-xl p-5 pb-14 font-thin tracking-wide">{% block header_subtitle %}{% endblock %}</p>
+    <p class="text-xl p-5 pb-10 font-thin tracking-wide">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
+  
+  <nav class="sticky top-0 w-full p-2 bg-slate-800 flex flex-row font-light font-sans dark:bg-inherit text-white">
+    <a href="/" class="p-2 hover:text-sky-300">Home</a>
+    <a href="/#projects" class="p-2 hover:text-sky-300">Projects</a>
+    <span class="flex-1"></span>
+    <a href="/themes" class="p-2 hover:text-sky-300">Change Theme</a>
+    <span class="basis-0 sm:basis-2"></span>
+    <a onclick="toggleDark()" class="cursor-pointer">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="36" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5" class="fill-slate-500" />
+        <path d="M 12 3 L 12 5 M 3 12 L 5 12 M 12 21 L 12 19 M 21 12 L 19 12
+        M 7 7 L 5.5 5.5 M 17 7 L 18.5 5.5 M 7 17 L 5.5 18.5 M 17 17 L 18.5 18.5" class="stroke-slate-500" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 10 16 A 4.5 4.5 0 1 0 10 8 A 4.1 4.1 0 0 1 10 16" class="fill-slate-800" />
+      </svg>
+    </a>
+  </nav>
 
   {% block content %}{% endblock content %}
 </body>
