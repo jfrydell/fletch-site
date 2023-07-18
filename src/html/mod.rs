@@ -250,6 +250,8 @@ where
 }
 
 /// Holds all the HTML content, ready to be served. The `HtmlServer` and main thread share ownership of this.
+///
+/// The instructions for adding a new version are listed under `HtmlVersion`.
 struct HtmlContent {
     pub default: defaulthtml::Content,
     pub simple: simplehtml::Content,
@@ -275,6 +277,15 @@ impl HtmlContent {
 }
 
 /// The possible versions of the HTML content.
+///
+/// When adding a new version, the following must be done:
+/// - Add a new variant to `HtmlVersion`
+///     - Update `FromStr` and `ToStr` implementations
+/// - Add a new field to `HtmlContent`
+///     - Update `new` and `refresh` methods
+/// - Add a new match arm to `HtmlServer::get_page`
+/// - Add a new nested router to `HtmlServer::router` (if needed)
+///     - If another version was copy-pasted, update the nested router to extract the correct state from the `Arc<HtmlServer>`
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum HtmlVersion {
     #[serde(rename = "default")]
