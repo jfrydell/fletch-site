@@ -1,11 +1,11 @@
 {% extends "base.tera" %}
 {% block title %}{{ project.name }} - {{ super() }}{% endblock title %}
 
+{% block header_title %}{{ project.name }}{% endblock %}
+{% block header_subtitle %}{{ project.description }}{% endblock %}
+
 {% block content %}
-<header class="font-sans mx-auto bg-slate-800 text-white text-center px-12 dark:bg-inherit">
-  <h1 class="text-5xl font-bold tracking-wide pt-14">{{ project.name }}</h1>
-  <p class="text-lg mt-5 pb-14 font-thin italic tracking-wide">{{ project.description }}</p>
-</header>
+
 {% for section in project.content["$value"] %}
 {% if section.section %}
 {{ self::make_section(section=section.section) }}

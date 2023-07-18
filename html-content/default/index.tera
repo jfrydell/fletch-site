@@ -1,11 +1,11 @@
 {% extends "base.tera" %}
 {% block title %} Home - {{ super() }}{% endblock title %}
 
+
+{% block header_title %}Fletch Rydell{% endblock %}
+{% block header_subtitle %}Electrical Engineer At Duke University{% endblock %}
+
 {% block content %}
-<header class="font-sans mx-auto bg-slate-800 text-white text-center dark:bg-inherit">
-  <h1 class="text-5xl font-bold tracking-wide pt-14">Fletch Rydell</h1>
-  <p class="text-xl p-5 pb-14 font-thin tracking-wide">Electrical Engineer at Duke University</p>
-</header>
 <section class="text-slate-900 dark:text-slate-200">
   <header class="p-5 text-center">
     <h3 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- Projects -</h3>
