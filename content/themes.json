@@ -1,0 +1,19 @@
+{
+    "themes": [
+        {
+            "name": "Default",
+            "path": "default",
+            "description": "This is the default theme for the site, written by me using nothing but HTML (in Tera templates) and Tailwind CSS (compiled with railwind)."
+        },
+        {
+            "name": "Simple",
+            "path": "simple",
+            "description": "Tired of all the fancy stuff? This theme is for you! I handwrote the minimal CSS required to make this site look decent and nothing more."
+        },
+        {
+            "name": "Pure",
+            "path": "pure",
+            "description": "Even CSS is too much for you? Just the 'simple' HTML, but with none of those pesky stylesheets."
+        }
+    ]
+}

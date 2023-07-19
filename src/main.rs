@@ -8,19 +8,55 @@ mod html;
 mod project;
 mod ssh;
 
-#[derive(Default, Serialize)]
+#[derive(Serialize)]
 pub struct Content {
     projects: Vec<project::Project>,
+    index_info: serde_json::Value,
+    themes_info: serde_json::Value,
+}
+impl Content {
+    /// Loads all content from the `content/` directory.
+    async fn load() -> Result<Content> {
+        // Get list of all projects from `content/projects`
+        let mut projects = Vec::new();
+        let mut entries = tokio::fs::read_dir("content/projects").await.unwrap();
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            let path = entry.path();
+            if path.is_file() {
+                // Load project
+                let project: project::Project = quick_xml::de::from_reader(
+                    std::io::BufReader::new(std::fs::File::open(path)?),
+                )?;
+                println!("Loaded project: {}", project.name);
+                projects.push(project);
+            }
+        }
+        projects.sort_by_key(|p| -p.priority);
+
+        // Load index and themes info
+        let index_info =
+            serde_json::from_str(&tokio::fs::read_to_string("content/index.json").await?)?;
+        let themes_info =
+            serde_json::from_str(&tokio::fs::read_to_string("content/themes.json").await?)?;
+
+        Ok(Content {
+            projects,
+            index_info,
+            themes_info,
+        })
+    }
 }
 
 static CONTENT: RwLock<Content> = RwLock::new(Content {
     projects: Vec::new(),
+    index_info: serde_json::Value::Null,
+    themes_info: serde_json::Value::Null,
 });
 
 #[tokio::main]
 async fn main() -> Result<Infallible> {
     // Load initial content
-    *CONTENT.write().unwrap() = load_content().await.expect("Failed to load content");
+    *CONTENT.write().unwrap() = Content::load().await.expect("Failed to load content");
 
     // Create broadcast channel for notifying services of content changes
     let (tx, rx) = broadcast::channel(1);
@@ -33,31 +69,12 @@ async fn main() -> Result<Infallible> {
     )
 }
 
-/// Loads all content.
-async fn load_content() -> Result<Content> {
-    // Get list of all projects from `content/projects`
-    let mut projects = Vec::new();
-    let mut entries = tokio::fs::read_dir("content/projects").await.unwrap();
-    while let Some(entry) = entries.next_entry().await.unwrap() {
-        let path = entry.path();
-        if path.is_file() {
-            // Load project
-            let project: project::Project =
-                quick_xml::de::from_reader(std::io::BufReader::new(std::fs::File::open(path)?))?;
-            println!("Loaded project: {}", project.name);
-            projects.push(project);
-        }
-    }
-    projects.sort_by_key(|p| -p.priority);
-    Ok(Content { projects })
-}
-
 /// Watches for changes to the shared `Content` and updates the static variable as needed. On update, sends a message on
 /// a broadcast channel passed into this function.
 async fn watch_content(broadcast_tx: broadcast::Sender<()>) -> Result<Infallible> {
-    watch_path(std::path::Path::new("content/projects/"), || async {
+    watch_path(std::path::Path::new("content/"), || async {
         // Load content, update static variable, and send message
-        let content = load_content().await?;
+        let content = Content::load().await?;
         println!("Content updated, broadcasting message");
         *CONTENT.write().unwrap() = content;
         broadcast_tx.send(()).unwrap_or_else(|e| {

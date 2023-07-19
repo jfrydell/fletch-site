@@ -3,13 +3,13 @@
 
 
 {% block header_title %}Fletch Rydell{% endblock %}
-{% block header_subtitle %}Electrical Engineer At Duke University{% endblock %}
+{% block header_subtitle %}{{ index_info.subtitle }}{% endblock %}
 
 {% block content %}
 <section class="text-slate-900 dark:text-slate-200">
   <header class="p-5 text-center">
     <h3 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- Projects -</h3>
-    <p>Here's some of the stuff I've done:</p>
+    <p>{{ index_info.projects_caption }}</p>
   </header>
   <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" id="projects">
     {% for project in projects %}

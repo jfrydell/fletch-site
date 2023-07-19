@@ -99,6 +99,14 @@ impl HtmlServer {
                 ),
             )
             .route(
+                "/themes",
+                get(
+                    |State(server): State<Arc<Self>>, version: ExtractVersion| async move {
+                        server.get_page(Page::Themes, version).await
+                    },
+                ),
+            )
+            .route(
                 "/projects/*path",
                 get(
                     |State(server): State<Arc<Self>>,
@@ -322,6 +330,7 @@ impl std::str::FromStr for HtmlVersion {
 #[derive(Debug, Clone)]
 pub enum Page {
     Index,
+    Themes,
     Project(String),
     BlogPost(String),
 }
