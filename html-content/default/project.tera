@@ -65,12 +65,11 @@
   {% set items = criteria["item"] %}
   {% for item in items %}
   <div class="text-white max-w-xl mx-6 lg:mx-0">
-    <h4 class="text-2xl text-center">{{item.title}}</h4>
+    <h3 class="text-2xl text-center">{{item.title}}</h3>
     <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
   </div>
   {%- endfor -%}
 </section>
-{# items | length #} {# How many elements in this section (used to layout grid) #}
 {%- endmacro -%}
 
 {# Renderes a `Text` struct, containing a `$value` array of `TextElement`s (text and links). #}
@@ -79,7 +78,7 @@
 {% if element["$text"] %}
 {{ element["$text"] }}
 {% elif element["a"] %}
-<a class="text-sky-600 hover:text-sky-700 visited:text-purple-700" href="{{ element.a['@href'] }}">{{
+<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500" href="{{ element.a['@href'] }}">{{
   self::render_text(text = element["a"]) }}</a>
 {% endif %}
 {% endfor %}

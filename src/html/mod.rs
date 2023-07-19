@@ -8,7 +8,6 @@ use axum::{
     routing::get,
     Router,
 };
-use axum_extra::extract::{cookie::Cookie, CookieJar};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
@@ -223,7 +222,7 @@ impl HtmlServer {
 
 /// An extractor getting the desired version of the HTML content along with possibly-updated cookies. If the version is `None`,
 /// the default version should be used with a dialog to choose a version.
-struct ExtractVersion(Option<HtmlVersion>, CookieJar);
+struct ExtractVersion(Option<HtmlVersion>, axum_extra::extract::CookieJar);
 #[async_trait]
 impl<S> FromRequestParts<S> for ExtractVersion
 where
@@ -236,6 +235,7 @@ where
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
         use axum::RequestPartsExt;
+        use axum_extra::extract::{cookie::Cookie, CookieJar};
 
         // Get the cookies from the request to see which version the user has set, if any.
         let cookies: CookieJar = parts.extract().await?;
@@ -250,7 +250,12 @@ where
         match parts.extract::<Query<QueryVersion>>().await {
             Ok(Query(QueryVersion { version })) => Ok(Self(
                 Some(version),
-                cookies.add(Cookie::new("version", version.to_string())),
+                cookies.add(
+                    Cookie::build("version", version.to_string())
+                        .path("/")
+                        .permanent()
+                        .finish(),
+                ),
             )),
             Err(_) => Ok(Self(version, cookies)),
         }
