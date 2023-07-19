@@ -6,11 +6,16 @@
 
 {% block content %}
 
-<main class="p-8 mx-auto max-w-screen-xl space-y-8">
+<main class="p-8 mx-auto max-w-screen-xl space-y-8 text-lg">
+  <header class="space-y-1">
+    <h2 class="text-sky-600 dark:text-sky-500 text-4xl">About Themes</h2>
+    <p>{{ about_text }}</p>
+    <p class="leading-loose">You can select a theme from the list below by clicking its name:</p>
+  </header>
   {% for theme in themes %}
-  <section>
-    <h2 class="text-sky-600 dark:text-sky-500 hover:underline text-4xl"><a href="/themes?version={{ theme.path }}">{{ theme.name }}</a></h2>
-    <p class="text-lg">{{ theme.description }}</p>
+  <section class="space-y-1">
+    <h3 class="text-sky-600 dark:text-sky-500 hover:underline text-4xl"><a href="/themes?version={{ theme.path }}">{{ theme.name }}</a></h3>
+    <p>{{ theme.description }}</p>
   </section>
   {% endfor %}
 </main>
