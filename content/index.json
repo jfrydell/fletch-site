@@ -1,4 +1,5 @@
 {
     "subtitle": "Electrical Engineer at Duke University",
+    "about_me": "Thanks for visiting my website! I'm a sophomore at Duke University studying Electrical/Computer Engineering and Computer Science, and I'm also interested in math, physics, and music. On this website, I share projects that I've completed/am working on as well as other thoughts. The site is powered by a custom-built static site generator/server written in Rust, featuring several different versions you can explore by clicking the \"Change Theme\" button. I hope you enjoy!",
     "projects_caption": "Here's some of the stuff I've done:"
 }

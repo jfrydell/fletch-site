@@ -10,7 +10,7 @@
   <header class="space-y-1">
     <h2 class="text-sky-600 dark:text-sky-500 text-4xl">About Themes</h2>
     <p>{{ about_text }}</p>
-    <p class="leading-loose">You can select a theme from the list below by clicking its name:</p>
+    <p class="pt-2">You can select a theme from the list below by clicking its name:</p>
   </header>
   {% for theme in themes %}
   <section class="space-y-1">

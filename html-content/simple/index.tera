@@ -7,6 +7,10 @@
   <p role="doc-subtitle">{{ index_info.subtitle }}</p>
 </header>
 <section>
+  <h2>About Me</h3>
+  <p>{{ index_info.about_me }}</p>
+</section>
+<section>
   <header>
     <h2>Projects</h3>
       <p role="doc-subtitle">{{ index_info.projects_caption }}</p>
