@@ -6,7 +6,7 @@
 {% block header_subtitle %}{{ index_info.subtitle }}{% endblock %}
 
 {% block content %}
-<section class="text-slate-900 dark:text-slate-200">
+<section>
   <header class="p-5 text-center">
     <h3 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- Projects -</h3>
     <p>{{ index_info.projects_caption }}</p>

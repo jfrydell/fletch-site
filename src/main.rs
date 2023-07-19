@@ -131,7 +131,10 @@ where
                     break;
                 }
                 // Update content if no other event occurs
-                _ = on_change() => {
+                result = on_change() => {
+                    if let Err(e) = result {
+                        println!("Error updating content: {}", e);
+                    }
                     break;
                 }
             }

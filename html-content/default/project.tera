@@ -19,7 +19,7 @@
 {% macro make_section(section) %}
 {% set elements = section["$value"] %}
 <section
-  class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed dark:text-slate-400">
+  class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed">
   {% for element in elements %}
   <div>
     {% if loop.first %}
@@ -64,7 +64,7 @@
   </div>
   {% set items = criteria["item"] %}
   {% for item in items %}
-  <div class="text-white max-w-xl mx-6 lg:mx-0 dark:text-slate-300">
+  <div class="text-white max-w-xl mx-6 lg:mx-0">
     <h4 class="text-2xl text-center">{{item.title}}</h4>
     <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
   </div>

@@ -3,7 +3,7 @@
         {
             "name": "Default",
             "path": "default",
-            "description": "This is the default theme for the site, written by me using nothing but HTML (in Tera templates) and Tailwind CSS (compiled with railwind)."
+            "description": "This is the default theme for the site, written by me using nothing but HTML (in Tera templates) and Tailwind CSS (compiled with railwind). It supports both light and dark mode (separately from this theming mechanism)."
         },
         {
             "name": "Simple",
@@ -15,5 +15,6 @@
             "path": "pure",
             "description": "Even CSS is too much for you? Just the 'simple' HTML, but with none of those pesky stylesheets."
         }
-    ]
+    ],
+    "about_text": "To allow users to have the best browsing experience, I decided to create a few different versions of this site for them to choose from. The content should be the exact same for all of them, but the presentation will be different. Of course, all versions of the site require a web browser to access, so if you don't have that (well first of all, how'd you find this site?), you can access the site via SSH (coming soon!)."
 }

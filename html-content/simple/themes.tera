@@ -1,0 +1,22 @@
+{% extends "base.tera" %}
+{% block title %} Themes - {{ super() }}{% endblock title %}
+
+{% block header_title %}Site Themes{% endblock %}
+{% block header_subtitle %}Don't like this default look? Choose a different version!{% endblock %}
+
+{% block content %}
+
+<header>
+  <h1>Change Theme</h1>
+  <p role="doc-subtitle">Tired of the simplicy? Try a new theme:</p>
+</header>
+<main class="text-slate-900 dark:text-slate-200">
+  {% for theme in themes %}
+  <section>
+    <h2><a href="/themes?version={{ theme.path }}">{{ theme.name }}</a></h2>
+    <p>{{ theme.description }}</p>
+  </section>
+  {% endfor %}
+</main>
+
+{% endblock content %}
