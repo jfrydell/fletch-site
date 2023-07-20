@@ -8,21 +8,57 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/defaulthtml/css.css" type="text/css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
   <script>
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+    function getAnimations(elem, direction) {
+      var x = (Math.random() * 200) - 100, y = Math.random() * 500;
+      elem.style.transform = "translate(" + x + "px, " + y + "px)";
+      elem.style.opacity = "0";
+      return [
+        () => {
+          gsap.fromTo(elem, {x: x, y: y, autoAlpha: 0}, {
+            duration: 1.25, 
+            x: 0,
+            y: 0, 
+            autoAlpha: 1, 
+            ease: "expo", 
+            overwrite: "auto"
+          })
+        },
+        () => {
+          gsap.fromTo(elem, {x: -x, y: -y, autoAlpha: 0}, {
+            duration: 1.25, 
+            x: 0,
+            y: 0, 
+            autoAlpha: 1, 
+            ease: "expo", 
+            overwrite: "auto"
+          })
+        }
+      ];
     }
-    function toggleDark() {
-      if (document.documentElement.classList.contains('dark')) {
-        localStorage.theme = 'light'
-        document.documentElement.classList.remove('dark')
-      } else {
-        localStorage.theme = 'dark'
-        document.documentElement.classList.add('dark')
-      }
+    
+    function hide(elem) {
+      console.log(elem);
+      gsap.set(elem, {autoAlpha: 0});
     }
+    
+    document.addEventListener("DOMContentLoaded", function() {
+      gsap.registerPlugin(ScrollTrigger);
+      
+      gsap.utils.toArray("p").forEach(function(elem) {
+        hide(elem); // assure that the element is hidden when scrolled into view
+        let animations = getAnimations(elem);
+        ScrollTrigger.create({
+          trigger: elem,
+          markers: false,
+          onEnter: animations[0], 
+          onEnterBack: animations[1],
+          onLeave: function() { hide(elem) } // assure that the element is hidden when scrolled into view
+        });
+      });
+    });    
   </script>
   {% endblock head %}
 </head>
@@ -30,8 +66,8 @@
 <body class="font-serif dark:bg-slate-900 dark:text-slate-200">
   {% block header %}
   <header class="font-sans mx-auto bg-slate-800 text-white text-center dark:bg-inherit">
-    <h1 class="text-5xl font-bold tracking-wide pt-14">{% block header_title %}{% endblock %}</h1>
-    <p class="text-xl p-5 pb-10 font-thin tracking-wide">{% block header_subtitle %}{% endblock %}</p>
+    <h1 class="text-5xl font-bold tracking-wide pt-14" id="main-header">{% block header_title %}{% endblock %}</h1>
+    <p class="text-xl p-5 pb-10 font-thin tracking-wide" id="main-subtitle">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
   
