@@ -13,6 +13,7 @@ use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
 
 mod defaulthtml;
+mod fancyhtml;
 mod simplehtml;
 
 /// Runs the HTML service, given a broadcast channel to notify it of content changes.
@@ -118,6 +119,7 @@ impl HtmlServer {
             .route("/ws", get(Self::ws_handler))
             .nest("/defaulthtml", defaulthtml::Content::router())
             .nest("/simplehtml", simplehtml::Content::router())
+            .nest("/fancyhtml", fancyhtml::Content::router())
             .with_state(self)
             .nest_service("/images/", ServeDir::new("content/images/"))
     }
@@ -137,6 +139,7 @@ impl HtmlServer {
             Some(HtmlVersion::DefaultHtml) => content.default.get_page(page),
             Some(HtmlVersion::SimpleHtml) => content.simple.get_page(page, false),
             Some(HtmlVersion::PureHtml) => content.simple.get_page(page, true),
+            Some(HtmlVersion::FancyHtml) => content.fancy.get_page(page),
             None => content.default.get_page(page),
         };
 
@@ -268,23 +271,32 @@ where
 struct HtmlContent {
     pub default: defaulthtml::Content,
     pub simple: simplehtml::Content,
+    pub fancy: fancyhtml::Content,
 }
 
 impl HtmlContent {
     /// Renders the HTML content based on the given general content, from scratch.
     async fn new(content: &crate::Content) -> Result<Self> {
-        let (default, simple) = tokio::try_join!(
+        let (default, simple, fancy) = tokio::try_join!(
             defaulthtml::Content::new(content),
-            simplehtml::Content::new(content)
+            simplehtml::Content::new(content),
+            fancyhtml::Content::new(content),
         )?;
-        Ok(Self { default, simple })
+        Ok(Self {
+            default,
+            simple,
+            fancy,
+        })
     }
 
     /// Reloads the HTML content based on the given general content, without recreating the HTML content object itself.
     /// This should be used when the general content changes, but the HTML specific content (templates, etc.) does not.
     async fn refresh(&mut self, content: &crate::Content) -> Result<()> {
-        self.default.refresh(content).await?;
-        self.simple.refresh(content).await?;
+        tokio::try_join!(
+            self.default.refresh(content),
+            self.simple.refresh(content),
+            self.fancy.refresh(content),
+        )?;
         Ok(())
     }
 }
@@ -307,6 +319,8 @@ pub enum HtmlVersion {
     SimpleHtml,
     #[serde(rename = "pure")]
     PureHtml,
+    #[serde(rename = "fancy")]
+    FancyHtml,
 }
 impl ToString for HtmlVersion {
     fn to_string(&self) -> String {
@@ -314,6 +328,7 @@ impl ToString for HtmlVersion {
             Self::DefaultHtml => "default".to_string(),
             Self::SimpleHtml => "simple".to_string(),
             Self::PureHtml => "pure".to_string(),
+            Self::FancyHtml => "fancy".to_string(),
         }
     }
 }
@@ -325,6 +340,7 @@ impl std::str::FromStr for HtmlVersion {
             "default" => Ok(Self::DefaultHtml),
             "simple" => Ok(Self::SimpleHtml),
             "pure" => Ok(Self::PureHtml),
+            "fancy" => Ok(Self::FancyHtml),
             _ => Err(()),
         }
     }
