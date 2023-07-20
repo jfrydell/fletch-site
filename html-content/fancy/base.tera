@@ -40,14 +40,13 @@
     }
     
     function hide(elem) {
-      console.log(elem);
       gsap.set(elem, {autoAlpha: 0});
     }
     
     document.addEventListener("DOMContentLoaded", function() {
       gsap.registerPlugin(ScrollTrigger);
       
-      gsap.utils.toArray("p").forEach(function(elem) {
+      gsap.utils.toArray(".word").forEach(function(elem) {
         hide(elem); // assure that the element is hidden when scrolled into view
         let animations = getAnimations(elem);
         ScrollTrigger.create({
@@ -60,6 +59,10 @@
       });
     });    
   </script>
+  <style>
+    .word {
+      display: inline-block;}
+  </style>
   {% endblock head %}
 </head>
 
