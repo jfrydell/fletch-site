@@ -1,6 +1,5 @@
 use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 
-use anyhow::Result;
 use async_trait::async_trait;
 use axum::{
     extract::{ws, FromRequestParts, Path, Query, State},
@@ -8,6 +7,7 @@ use axum::{
     routing::get,
     Router,
 };
+use color_eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
@@ -60,7 +60,7 @@ impl HtmlServer {
             match rx.recv().await {
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Closed) => {
-                    anyhow::bail!("Global content change broadcast channel closed");
+                    eyre::bail!("Global content change broadcast channel closed");
                 }
                 Err(broadcast::error::RecvError::Lagged(_)) => {
                     println!("Html server lagging behind global content changes");

@@ -5,8 +5,8 @@ use std::{
     sync::{atomic::AtomicUsize, Arc},
 };
 
-use anyhow::Result;
 use async_trait::async_trait;
+use color_eyre::Result;
 use russh::{
     server::{self, Msg, Session},
     Channel, ChannelId, CryptoVec, Disconnect,
@@ -222,7 +222,7 @@ impl SshSession {
 
 #[async_trait]
 impl server::Handler for SshSession {
-    type Error = anyhow::Error;
+    type Error = color_eyre::Report;
 
     async fn channel_open_session(
         mut self,

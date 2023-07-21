@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
+use color_eyre::Result;
 use tera::Tera;
 
 /// Stores the rendered basic HTML content, for serving previews or writing to files.
@@ -22,7 +22,7 @@ impl Content {
     /// Renders the default HTML pages from the general content.
     pub async fn new(content: &crate::Content) -> Result<Self> {
         // The template engine is the only thing that must be loaded for html-specific content, so load that first.
-        let tera = Tera::new("html-content/default/**/*.tera").expect("Failed to load templates");
+        let tera = Tera::new("html-content/default/**/*.tera")?;
 
         // To render the content, we just create an empty struct and call the refresh function with the content.
         let mut result = Self {

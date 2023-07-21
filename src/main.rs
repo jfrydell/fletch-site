@@ -1,6 +1,6 @@
 use std::{convert::Infallible, future::Future, sync::RwLock};
 
-use anyhow::{Context, Result};
+use color_eyre::{eyre::eyre, Result};
 use serde::Serialize;
 use tokio::sync::broadcast;
 
@@ -55,6 +55,8 @@ static CONTENT: RwLock<Content> = RwLock::new(Content {
 
 #[tokio::main]
 async fn main() -> Result<Infallible> {
+    color_eyre::install()?;
+
     // Load initial content
     *CONTENT.write().unwrap() = Content::load().await.expect("Failed to load content");
 
@@ -116,7 +118,7 @@ where
         // Wait for event, flushing all when one is seen
         rx.recv()
             .await
-            .context("Watcher channel closed, can't receive filesystem events")?;
+            .ok_or_else(|| eyre!("Watcher channel closed, can't receive filesystem events"))?;
         while rx.try_recv().is_ok() {}
         println!("Saw change to {}, reloading...", path.display());
 
@@ -130,10 +132,10 @@ where
                     println!("Change to {} mid-update, resetting update", path.display());
                     break;
                 }
-                // Update content if no other event occurs
+                // Run callback if no other event occurs
                 result = on_change() => {
                     if let Err(e) = result {
-                        println!("Error updating content: {}", e);
+                        println!("Error running change callback: {:?}", e);
                     }
                     break;
                 }
