@@ -11,6 +11,7 @@ use color_eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
+use tracing::{debug, error, info, warn};
 
 mod defaulthtml;
 mod simplehtml;
@@ -63,13 +64,13 @@ impl HtmlServer {
                     eyre::bail!("Global content change broadcast channel closed");
                 }
                 Err(broadcast::error::RecvError::Lagged(_)) => {
-                    println!("Html server lagging behind global content changes");
+                    warn!("Html server lagging behind global content changes");
                     continue;
                 }
             };
             match self.refresh_content(&crate::CONTENT.read().unwrap()).await {
-                Ok(_) => println!("Reloaded HTML content"),
-                Err(e) => println!("Failed to reload HTML content: {e}"),
+                Ok(_) => info!("Reloaded HTML content"),
+                Err(e) => error!("Failed to reload HTML content: {e}"),
             }
             self.reload_clients();
         }
@@ -129,7 +130,7 @@ impl HtmlServer {
         ExtractVersion(version, cookies): ExtractVersion,
     ) -> impl IntoResponse {
         // Logging
-        println!("User requested page {page:?} with version {version:?}");
+        debug!("User requested page {page:?} with version {version:?}");
 
         // Get the page's content from the desired version
         let content = self.content.read().await;
@@ -177,7 +178,7 @@ impl HtmlServer {
             Ok(n) => n,
             Err(_) => 0,
         };
-        println!("Reloaded {n} clients");
+        info!("Reloaded {n} clients");
     }
 
     /// Handles websocket connections, adding them to a queue to update when content changes.
@@ -191,7 +192,7 @@ impl HtmlServer {
         // Once the ws is ready, listen for events on the channel
         ws.on_upgrade(|socket| async move {
             use futures::{SinkExt, StreamExt};
-            println!("Socket connected, listening for live-reloads.");
+            debug!("Socket connected, listening for live-reloads.");
 
             // Split the socket into a sender and receiver
             let (mut socket_tx, mut socket_rx) = socket.split();
@@ -203,7 +204,7 @@ impl HtmlServer {
                     .send(ws::Message::Binary(vec![]))
                     .await
                     .unwrap_or_else(|e| {
-                        println!("Failed to send live-reload to socket: {e}");
+                        warn!("Failed to send live-reload to socket: {e}");
                     });
                 }
                 _ = async {
@@ -213,7 +214,7 @@ impl HtmlServer {
                         }
                     }
                 } => {
-                    println!("Reload socket closed");
+                    debug!("Reload socket closed");
                 }
             );
         })

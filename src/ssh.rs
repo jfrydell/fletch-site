@@ -13,6 +13,7 @@ use russh::{
 };
 use russh_keys::key;
 use tokio::sync::broadcast;
+use tracing::{debug, info, warn};
 
 use crate::project::Project;
 
@@ -169,7 +170,7 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
     config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
     let server = Server::new(content);
 
-    println!("Starting SSH Server...");
+    info!("Starting SSH Server...");
     server::run(Arc::new(config), ("0.0.0.0", 2222), server)
         .await
         .expect("Running SSH server failed");
@@ -194,7 +195,7 @@ impl server::Server for Server {
     type Handler = SshSession;
     fn new_client(&mut self, addr: Option<std::net::SocketAddr>) -> Self::Handler {
         let id = self.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        println!("New client from {:?} assigned id {}", addr, id);
+        debug!("New client from {:?} assigned id {}", addr, id);
         SshSession::new(id, Arc::clone(&self.content))
     }
 }
@@ -262,7 +263,7 @@ impl server::Handler for SshSession {
         _modes: &[(russh::Pty, u32)],
         session: Session,
     ) -> Result<(Self, Session), Self::Error> {
-        println!(
+        debug!(
             "got pty request (see russh/server/mod.rs: 497 for default impl, not sure if needed)"
         );
         self.term_size = (col_width, row_height);
@@ -274,7 +275,7 @@ impl server::Handler for SshSession {
         channel: ChannelId,
         mut session: Session,
     ) -> Result<(Self, Session), Self::Error> {
-        println!("Client {} requested shell", self.id);
+        debug!("Client {} requested shell", self.id);
 
         session.data(channel, Vec::from(WELCOME_MESSAGE).into());
         session.data(channel, CryptoVec::from(self.shell.prompt()));
@@ -314,7 +315,7 @@ impl server::Handler for SshSession {
                     let (r, command) = self.shell.process(*i);
                     response.extend(r);
                     if let Some(command) = command {
-                        println!("Client {} ran command: {:?}", self.id, command);
+                        debug!("Client {} ran command: {:?}", self.id, command);
                         let command_name = command.split(' ').next().unwrap_or("");
                         match command_name {
                             "exit" | "logout" => {
@@ -636,7 +637,7 @@ impl<'a> RunningApp for Vim<'a> {
                 self.update_cursor()
             }
             _ => {
-                println!("data '{data:?}' not implemented for vim");
+                warn!("data '{data:?}' not implemented for vim");
                 vec![]
             }
         }

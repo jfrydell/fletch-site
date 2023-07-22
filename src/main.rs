@@ -3,6 +3,7 @@ use std::{convert::Infallible, future::Future, sync::RwLock};
 use color_eyre::{eyre::eyre, Result};
 use serde::Serialize;
 use tokio::sync::broadcast;
+use tracing::{debug, error, info};
 
 mod html;
 mod project;
@@ -27,7 +28,7 @@ impl Content {
                 let project: project::Project = quick_xml::de::from_reader(
                     std::io::BufReader::new(std::fs::File::open(path)?),
                 )?;
-                println!("Loaded project: {}", project.name);
+                info!("Loaded project: {}", project.name);
                 projects.push(project);
             }
         }
@@ -55,7 +56,17 @@ static CONTENT: RwLock<Content> = RwLock::new(Content {
 
 #[tokio::main]
 async fn main() -> Result<Infallible> {
+    // Set up error handling and logging
+    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
+        std::env::set_var("RUST_LIB_BACKTRACE", "1");
+    }
     color_eyre::install()?;
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "debug");
+    }
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     // Load initial content
     *CONTENT.write().unwrap() = Content::load().await.expect("Failed to load content");
@@ -77,10 +88,10 @@ async fn watch_content(broadcast_tx: broadcast::Sender<()>) -> Result<Infallible
     watch_path(std::path::Path::new("content/"), || async {
         // Load content, update static variable, and send message
         let content = Content::load().await?;
-        println!("Content updated, broadcasting message");
+        info!("Content updated, broadcasting message");
         *CONTENT.write().unwrap() = content;
         broadcast_tx.send(()).unwrap_or_else(|e| {
-            println!("No receivers for content update: {}", e);
+            error!("No receivers for content update: {}", e);
             0
         });
         Ok(())
@@ -111,7 +122,7 @@ where
 
     // Watch for changes
     watcher.watch(path, RecursiveMode::Recursive)?;
-    println!("Listening for changes to {}", path.display());
+    info!("Listening for changes to {}", path.display());
 
     // Wait for events, running callback when they happen
     loop {
@@ -120,7 +131,7 @@ where
             .await
             .ok_or_else(|| eyre!("Watcher channel closed, can't receive filesystem events"))?;
         while rx.try_recv().is_ok() {}
-        println!("Saw change to {}, reloading...", path.display());
+        debug!("Saw change to {}, reloading...", path.display());
 
         // Run callback, cancelling and retrying if another event occurs. If we keep seeing events for 1 second, stop cancelling and just go.
         let stop_retrying_time = std::time::Instant::now() + std::time::Duration::from_secs(1);
@@ -129,13 +140,13 @@ where
                 biased;
                 // Check to see if there's another event already, resetting the update if we see one
                 _ = rx.recv(), if std::time::Instant::now() < stop_retrying_time => {
-                    println!("Change to {} mid-update, resetting update", path.display());
+                    debug!("Change to {} mid-update, resetting update", path.display());
                     break;
                 }
                 // Run callback if no other event occurs
                 result = on_change() => {
                     if let Err(e) = result {
-                        println!("Error running change callback: {:?}", e);
+                        error!("Error running change callback: {:?}", e);
                     }
                     break;
                 }
