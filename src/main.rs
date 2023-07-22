@@ -62,7 +62,7 @@ async fn main() -> Result<Infallible> {
     }
     color_eyre::install()?;
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "debug");
+        std::env::set_var("RUST_LOG", "debug,hyper=warn");
     }
     tracing_subscriber::fmt::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -131,7 +131,7 @@ where
             .await
             .ok_or_else(|| eyre!("Watcher channel closed, can't receive filesystem events"))?;
         while rx.try_recv().is_ok() {}
-        debug!("Saw change to {}, reloading...", path.display());
+        info!("Saw change to {}, reloading...", path.display());
 
         // Run callback, cancelling and retrying if another event occurs. If we keep seeing events for 1 second, stop cancelling and just go.
         let stop_retrying_time = std::time::Instant::now() + std::time::Duration::from_secs(1);

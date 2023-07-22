@@ -195,7 +195,7 @@ impl server::Server for Server {
     type Handler = SshSession;
     fn new_client(&mut self, addr: Option<std::net::SocketAddr>) -> Self::Handler {
         let id = self.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        debug!("New client from {:?} assigned id {}", addr, id);
+        info!("New client from {:?} assigned id {}", addr, id);
         SshSession::new(id, Arc::clone(&self.content))
     }
 }
@@ -315,7 +315,7 @@ impl server::Handler for SshSession {
                     let (r, command) = self.shell.process(*i);
                     response.extend(r);
                     if let Some(command) = command {
-                        debug!("Client {} ran command: {:?}", self.id, command);
+                        info!("Client {} ran command: {:?}", self.id, command);
                         let command_name = command.split(' ').next().unwrap_or("");
                         match command_name {
                             "exit" | "logout" => {

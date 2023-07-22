@@ -121,6 +121,7 @@ impl HtmlServer {
             .nest("/simplehtml", simplehtml::Content::router())
             .with_state(self)
             .nest_service("/images/", ServeDir::new("content/images/"))
+            .layer(tower_http::trace::TraceLayer::new_for_http())
     }
 
     /// Handles a request for a page, given which page and which version of content to use.
@@ -130,7 +131,7 @@ impl HtmlServer {
         ExtractVersion(version, cookies): ExtractVersion,
     ) -> impl IntoResponse {
         // Logging
-        debug!("User requested page {page:?} with version {version:?}");
+        info!("User requested page {page:?} with version {version:?}");
 
         // Get the page's content from the desired version
         let content = self.content.read().await;
