@@ -1,6 +1,63 @@
 {% extends "base.tera" %}
 {% block title %}{{ project.name }} - {{ super() }}{% endblock title %}
 
+{% block head %}
+{{ super() }}
+<script>
+  function getAnimations(elem, direction) {
+    var x = (Math.random() * 200) - 100, y = Math.random() * 500;
+    elem.style.transform = "translate(" + x + "px, " + y + "px)";
+    elem.style.opacity = "0";
+    return [
+      () => {
+        gsap.fromTo(elem, {x: x, y: y, autoAlpha: 0}, {
+          duration: 1.25, 
+          x: 0,
+          y: 0, 
+          autoAlpha: 1, 
+          ease: "expo", 
+          overwrite: "auto"
+        })
+      },
+      () => {
+        gsap.fromTo(elem, {x: -x, y: -y, autoAlpha: 0}, {
+          duration: 1.25, 
+          x: 0,
+          y: 0, 
+          autoAlpha: 1, 
+          ease: "expo", 
+          overwrite: "auto"
+        })
+      }
+    ];
+  }
+  
+  function hide(elem) {
+    gsap.set(elem, {autoAlpha: 0});
+  }
+  
+  document.addEventListener("DOMContentLoaded", function() {
+    gsap.registerPlugin(ScrollTrigger);
+    
+    gsap.utils.toArray(".word").forEach(function(elem) {
+      hide(elem); // assure that the element is hidden when scrolled into view
+      let animations = getAnimations(elem);
+      ScrollTrigger.create({
+        trigger: elem,
+        markers: false,
+        onEnter: animations[0], 
+        onEnterBack: animations[1],
+        onLeave: function() { hide(elem) } // assure that the element is hidden when scrolled into view
+      });
+    });
+  });    
+</script>
+<style>
+  .word {
+    display: inline-block;}
+</style>
+{% endblock head %}
+
 {% block header_title %}{{ project.name }}{% endblock %}
 {% block header_subtitle %}{{ project.description }}{% endblock %}
 
@@ -23,7 +80,7 @@
   {% for element in elements %}
   <div>
     {% if loop.first %}
-    <h2 class="text-3xl mb-2 font-bold text-sky-600 dark:text-sky-600 dark:font-normal dark:tracking-wider">
+    <h2 class="text-3xl mb-2 font-normal tracking-wider text-sky-600">
       {{
       section.title }}
     </h2>
@@ -59,7 +116,7 @@
 <section
   class="p-8 bg-slate-800 flex items-center justify-center flex-col lg:flex-row gap-6 lg:gap-12 lg:pr-16 xl:pr-32">
   <div class="mt-8 lg:m-16 lg:w-36">
-    <h2 class="text-3xl text-sky-200 text-center font-bold lg:-rotate-45 dark:dark:text-sky-600">{{ criteria.title }}
+    <h2 class="text-3xl text-sky-600 text-center font-bold lg:-rotate-45">{{ criteria.title }}
     </h2>
   </div>
   {% set items = criteria["item"] %}
@@ -81,7 +138,7 @@
 <span class="word">{{ i }}</span>
 {% endfor %}
 {% elif element["a"] %}
-<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500" href="{{ element.a['@href'] }}">{{
+<a class="text-sky-500 hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500" href="{{ element.a['@href'] }}">{{
   self::render_text(text = element["a"]) }}</a>
 {% endif %}
 {% endfor %}

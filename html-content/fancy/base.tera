@@ -7,73 +7,42 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/defaulthtml/css.css" type="text/css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Titillium+Web">
+  <style>
+    body {
+      font-family: 'Titillium Web', sans-serif;
+    }
+    body:before, body:after {
+      content: "";
+      position: fixed;
+      z-index: 10;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0));
+    }
+    body:after {
+      top: auto;
+      bottom: 0;
+      background: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0));
+    }
+  </style>
+  <link rel="stylesheet" href="/fancyhtml/css.css" type="text/css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-  <script>
-    function getAnimations(elem, direction) {
-      var x = (Math.random() * 200) - 100, y = Math.random() * 500;
-      elem.style.transform = "translate(" + x + "px, " + y + "px)";
-      elem.style.opacity = "0";
-      return [
-        () => {
-          gsap.fromTo(elem, {x: x, y: y, autoAlpha: 0}, {
-            duration: 1.25, 
-            x: 0,
-            y: 0, 
-            autoAlpha: 1, 
-            ease: "expo", 
-            overwrite: "auto"
-          })
-        },
-        () => {
-          gsap.fromTo(elem, {x: -x, y: -y, autoAlpha: 0}, {
-            duration: 1.25, 
-            x: 0,
-            y: 0, 
-            autoAlpha: 1, 
-            ease: "expo", 
-            overwrite: "auto"
-          })
-        }
-      ];
-    }
-    
-    function hide(elem) {
-      gsap.set(elem, {autoAlpha: 0});
-    }
-    
-    document.addEventListener("DOMContentLoaded", function() {
-      gsap.registerPlugin(ScrollTrigger);
-      
-      gsap.utils.toArray(".word").forEach(function(elem) {
-        hide(elem); // assure that the element is hidden when scrolled into view
-        let animations = getAnimations(elem);
-        ScrollTrigger.create({
-          trigger: elem,
-          markers: false,
-          onEnter: animations[0], 
-          onEnterBack: animations[1],
-          onLeave: function() { hide(elem) } // assure that the element is hidden when scrolled into view
-        });
-      });
-    });    
-  </script>
-  <style>
-    .word {
-      display: inline-block;}
-  </style>
   {% endblock head %}
 </head>
 
-<body class="font-serif dark:bg-slate-900 dark:text-slate-200">
+<body class="bg-black text-white">
   {% block header %}
-  <header class="font-sans mx-auto bg-slate-800 text-white text-center dark:bg-inherit">
+  <header class="mx-auto text-white text-center dark:bg-inherit">
     <h1 class="text-5xl font-bold tracking-wide pt-14" id="main-header">{% block header_title %}{% endblock %}</h1>
     <p class="text-xl p-5 pb-10 font-thin tracking-wide" id="main-subtitle">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
   
+  {#
   <nav class="sticky top-0 w-full p-2 bg-slate-800 flex flex-row font-light font-sans dark:bg-inherit text-white">
     <a href="/" class="p-2 hover:text-sky-300">Home</a>
     <a href="/#projects" class="p-2 hover:text-sky-300">Projects</a>
@@ -89,6 +58,7 @@
       </svg>
     </a>
   </nav>
+  #}
 
   {% block content %}{% endblock content %}
 </body>
