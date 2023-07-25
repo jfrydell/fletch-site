@@ -29,13 +29,13 @@
 
 <body class="font-serif dark:bg-zinc-900 dark:text-zinc-200">
   {% block header %}
-  <header class="font-sans mx-auto bg-sky-800 text-white text-center">
+  <header class="font-sans mx-auto bg-sky-900 text-white text-center">
     <h1 class="text-5xl font-bold tracking-wide pt-14">{% block header_title %}{% endblock %}</h1>
     <p class="text-xl p-5 pb-10 font-thin tracking-wide">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
   
-  <nav class="sticky top-0 w-full p-2 bg-sky-800 flex flex-row font-light font-sans text-white">
+  <nav class="sticky top-0 w-full p-2 bg-sky-900 flex flex-row font-light font-sans text-white">
     <a href="/" class="p-2 hover:text-sky-300">Home</a>
     <a href="/#projects" class="p-2 hover:text-sky-300">Projects</a>
     <span class="flex-1"></span>
