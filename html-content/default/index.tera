@@ -7,13 +7,13 @@
 
 {% block content %}
 <section class="p-5 text-center">
-  <h2 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- About Me -</h2>
+  <h2 class="p-2 italic text-2xl tracking-wide text-sky-600 dark:text-sky-500">- About Me -</h2>
   <p class="max-w-screen-md mx-auto">{{ index_info.about_me }}</p>
 </section>
 
 <section>
   <header class="p-5 text-center">
-    <h2 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- Projects -</h2>
+    <h2 class="p-2 italic text-2xl tracking-wide text-sky-600 dark:text-sky-500">- Projects -</h2>
     <p>{{ index_info.projects_caption }}</p>
   </header>
   <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" id="projects">
