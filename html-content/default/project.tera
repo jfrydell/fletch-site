@@ -8,7 +8,12 @@
 
 {% for section in project.content["$value"] %}
 {% if section.section %}
-{{ self::make_section(section=section.section) }}
+{% if not reverse %}
+{% set_global reverse = true %}
+{% else %}
+{% set_global reverse = false %}
+{% endif %}
+{{ self::make_section(section=section.section, reverse=reverse) }}
 {% elif section.criteria %}
 {{ self::make_criteria(criteria=section.criteria) }}
 {% endif %}
@@ -16,16 +21,14 @@
 
 {% endblock content %}
 
-{% macro make_section(section) %}
+{% macro make_section(section, reverse=false) %}
 {% set elements = section["$value"] %}
-<section
-  class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed">
+<section class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed ">
   {% for element in elements %}
-  <div>
+  <div class="{% if loop.first and reverse %}order-1{% endif %}">
     {% if loop.first %}
     <h2 class="text-3xl mb-2 font-bold text-sky-600 dark:text-sky-600 dark:font-normal dark:tracking-wider">
-      {{
-      section.title }}
+      {{ section.title }}
     </h2>
     {% endif %}
     {{ self::make_element(element = element) }}
@@ -45,7 +48,7 @@
 {% elif element.p %}
 <p>{{ self::render_text(text = element.p) }}</p>
 {% elif element.img %}
-<div class="mx-auto w-2/3 max-w-md">
+<div class="mx-auto w-3/4 max-w-md">
   <img class="rounded-lg" src="/images/{{ element.img['@src'] }}" alt="{{ element.img['@alt'] }}">
   {% if element.img.caption %}
   <p class="text-center text-sm p-2 pb-0 italic">{{ self::render_text(text = element.img.caption) }}</p>
