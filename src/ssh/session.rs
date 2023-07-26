@@ -21,6 +21,7 @@ use super::{
 pub struct SshSession {
     id: usize,
     shell: Shell,
+    pub username: String,
     pub content: Arc<SshContent>,
     pub current_dir: usize,
     pub term_size: (u32, u32),
@@ -31,11 +32,29 @@ impl SshSession {
         Self {
             id,
             shell: Shell::default(),
+            username: String::new(),
             content,
             current_dir: 0,
             term_size: (80, 24), // Just a guess, will be updated on connect anyway (TODO: make Option to do this right)
             running_app: None,
         }
+    }
+    /// Handle auth, accepting everyone and setting the username.
+    pub async fn auth(
+        mut self,
+        user: &str,
+    ) -> Result<(Self, server::Auth), <Self as server::Handler>::Error> {
+        info!("Client {} authenticated as {}", self.id, user);
+        self.username = user.to_string();
+        Ok((self, server::Auth::Accept))
+    }
+    /// Get the current prompt.
+    pub fn prompt(&self) -> Vec<u8> {
+        let mut prompt = self.username.as_bytes().to_vec();
+        prompt.extend("@fletchrydell.com:".as_bytes());
+        prompt.extend(self.content.get(self.current_dir).path.as_bytes());
+        prompt.extend(b"> ");
+        prompt
     }
 }
 
@@ -52,12 +71,18 @@ impl server::Handler for SshSession {
         Ok((self, true, session))
     }
 
+    async fn auth_none(self, user: &str) -> Result<(Self, server::Auth), Self::Error> {
+        self.auth(user).await
+    }
+    async fn auth_password(self, user: &str, _: &str) -> Result<(Self, server::Auth), Self::Error> {
+        self.auth(user).await
+    }
     async fn auth_publickey(
         self,
-        _: &str,
+        user: &str,
         _: &key::PublicKey,
     ) -> Result<(Self, server::Auth), Self::Error> {
-        Ok((self, server::Auth::Accept))
+        self.auth(user).await
     }
 
     async fn channel_open_confirmation(
@@ -96,7 +121,7 @@ impl server::Handler for SshSession {
         debug!("Client {} requested shell", self.id);
 
         session.data(channel, Vec::from(WELCOME_MESSAGE).into());
-        session.data(channel, CryptoVec::from(self.shell.prompt()));
+        session.data(channel, CryptoVec::from(self.prompt()));
         Ok((self, session))
     }
 
@@ -130,6 +155,7 @@ impl server::Handler for SshSession {
         for i in data {
             match self.running_app {
                 None => {
+                    // No app running, so shell handles input
                     let (r, command) = self.shell.process(*i);
                     response.extend(r);
                     if let Some(command) = command {
@@ -192,7 +218,8 @@ impl server::Handler for SshSession {
                             }
                         }
                         if self.running_app.is_none() {
-                            response.extend(self.shell.prompt());
+                            // No app was started, so reprompt
+                            response.extend(self.prompt());
                         }
                     }
                 }
@@ -202,7 +229,7 @@ impl server::Handler for SshSession {
                         response.append(
                             &mut TerminalUtils::new().clear().move_cursor(0, 0).into_data(),
                         );
-                        response.extend(self.shell.prompt());
+                        response.extend(self.prompt());
                         self.running_app = None;
                     } else {
                         response.extend(app.data(*i));

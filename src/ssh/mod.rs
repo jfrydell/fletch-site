@@ -26,7 +26,7 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
     let server = Server::new(content);
 
     info!("Starting SSH Server...");
-    server::run(Arc::new(config), ("0.0.0.0", 2222), server)
+    server::run(Arc::new(config), ("0.0.0.0", 22), server)
         .await
         .expect("Running SSH server failed");
     #[allow(unreachable_code)]

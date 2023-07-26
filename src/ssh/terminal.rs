@@ -1,14 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
 /// A virtual shell implementing line discipline, echoing, and backspace, receiving individual character inputs and passing output back to the client.
 #[derive(Debug)]
 pub struct Shell {
@@ -38,12 +27,8 @@ impl Default for Shell {
 }
 
 impl Shell {
-    /// Returns the shell prompt (done for initialization and upon switching back to the shell after a command)
-    pub fn prompt(&self) -> Vec<u8> {
-        vec![62, 32]
-    }
-
-    /// Processes a byte of input, returning a response to send back as well as optionally a command to run
+    /// Processes a byte of input, returning a response to send back as well as optionally a command to run.
+    /// If the command is "", no command is run, but the prompt is resent.
     ///
     /// (Some logic taken from [https://github.com/offirgolan/Shell/blob/master/read-line.c])
     pub fn process(&mut self, data: u8) -> (Vec<u8>, Option<String>) {
@@ -91,10 +76,8 @@ impl Shell {
                 self.current_history = vec![String::new()];
                 self.history_index = 0;
                 self.cursor = 0;
-                // Send newline and prompt withour running command
-                let mut response = vec![13, 10];
-                response.extend(self.prompt());
-                (response, None)
+                // Send newline and empty command (for prompt)
+                (vec![13, 10], Some(String::new()))
             }
             4 => {
                 // CTRL-D, close session
