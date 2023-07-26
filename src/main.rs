@@ -62,7 +62,7 @@ async fn main() -> Result<Infallible> {
     }
     color_eyre::install()?;
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "debug,hyper=warn");
+        std::env::set_var("RUST_LOG", "debug,hyper=warn,russh=info");
     }
     tracing_subscriber::fmt::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
