@@ -1,6 +1,7 @@
 use std::{convert::Infallible, future::Future, sync::RwLock};
 
 use color_eyre::{eyre::eyre, Result};
+use once_cell::sync::Lazy;
 use serde::Serialize;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info};
@@ -8,6 +9,21 @@ use tracing::{debug, error, info};
 mod html;
 mod project;
 mod ssh;
+
+pub static CONFIG: Lazy<Config> = Lazy::new(Config::load);
+#[derive(Debug)]
+pub struct Config {
+    /// Our domain name.
+    pub domain: String,
+}
+impl Config {
+    /// Loads the config from env vars.
+    fn load() -> Self {
+        Self {
+            domain: std::env::var("DOMAIN").expect("Missing DOMAIN env var"),
+        }
+    }
+}
 
 #[derive(Serialize)]
 pub struct Content {

@@ -51,7 +51,9 @@ impl SshSession {
     /// Get the current prompt.
     pub fn prompt(&self) -> Vec<u8> {
         let mut prompt = self.username.as_bytes().to_vec();
-        prompt.extend("@fletchrydell.com:".as_bytes());
+        prompt.push(b'@');
+        prompt.extend(crate::CONFIG.domain.as_bytes());
+        prompt.push(b':');
         prompt.extend(self.content.get(self.current_dir).path.as_bytes());
         prompt.extend(b"> ");
         prompt
@@ -83,16 +85,6 @@ impl server::Handler for SshSession {
         _: &key::PublicKey,
     ) -> Result<(Self, server::Auth), Self::Error> {
         self.auth(user).await
-    }
-
-    async fn channel_open_confirmation(
-        self,
-        _id: ChannelId,
-        _max_packet_size: u32,
-        _window_size: u32,
-        session: Session,
-    ) -> Result<(Self, Session), Self::Error> {
-        Ok((self, session))
     }
 
     async fn pty_request(

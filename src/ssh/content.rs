@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::project::Project;
-
 pub static WELCOME_MESSAGE: &[u8] = "=====================================\r
 |========== FLETCH RYDELL ==========|\r
 |========== *ssh edition* ==========|\r
@@ -17,18 +15,6 @@ pub static WELCOME_MESSAGE: &[u8] = "=====================================\r
 =====================================\r
 "
 .as_bytes();
-
-/// Convert a project into a descriptive text file.
-fn project_to_about(project: &Project) -> File {
-    let big_contents = serde_json::to_string_pretty(project)
-        .unwrap()
-        .replace('\n', "\r\n");
-    let contents = format!(
-        "# {}\r\n\r\n{}\r\n\r\n{}",
-        project.name, project.description, big_contents
-    );
-    File::new(project.name.clone(), contents)
-}
 
 /// The rendered content for the SSH server.
 #[derive(Debug)]
@@ -50,11 +36,10 @@ impl SshContent {
         // Add projects directory
         let projects_i = result.add_child(0, "projects".to_string());
         for project in content.projects.iter() {
-            let project_i = result.add_child(projects_i, project.url.clone());
             result.add_file(
-                project_i,
-                "about.txt".to_string(),
-                project_to_about(project),
+                projects_i,
+                format!("{}.txt", project.url),
+                File::new(project.to_string().replace('\n', "\r\n")),
             );
         }
 
@@ -127,21 +112,15 @@ pub struct Directory {
 /// A file in the virtual filesystem, containing an array of lines.
 #[derive(Debug, Default)]
 pub struct File {
-    /// The name of the file.
-    pub name: String,
     /// The raw contents of the file as a `String`.
     pub contents: String,
     /// The contents of the file, as an array of lines.
     pub lines: Vec<String>,
 }
 impl File {
-    pub fn new(name: String, contents: String) -> Self {
+    pub fn new(contents: String) -> Self {
         let lines: Vec<String> = contents.split("\r\n").map(|s| s.to_string()).collect();
-        Self {
-            name,
-            contents,
-            lines,
-        }
+        Self { contents, lines }
     }
     pub fn raw_contents(&self) -> &[u8] {
         self.contents.as_bytes()

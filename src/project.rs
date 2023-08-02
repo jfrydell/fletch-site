@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 /// One project and all of its content and metadata.
@@ -12,12 +14,50 @@ pub struct Project {
     /// The priority of this project, used for sorting.
     pub priority: i32,
 }
+impl Display for Project {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let &Self {
+            ref name,
+            ref url,
+            ref description,
+            ref content,
+            thumbnail: ref _thumbnail,
+            ref skills,
+            priority: ref _priority,
+        } = self;
+        // Header
+        writeln!(f, "=== {} ===", name)?;
+        writeln!(f, "https://{}/projects/{}", crate::CONFIG.domain, url)?;
+        writeln!(f, "{}", description)?;
+        writeln!(f, "Skills:")?;
+        for skill in skills.skills.iter() {
+            writeln!(f, "- {}", skill)?;
+        }
+        writeln!(
+            f,
+            "{}\n",
+            String::from_iter(std::iter::repeat('=').take(name.len() + 8))
+        )?;
+        // Content
+        write!(f, "{}", content)?;
+
+        Ok(())
+    }
+}
 
 /// The content of a project, including several `Section`s.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Content {
     #[serde(rename = "$value", default)]
     sections: Vec<Section>,
+}
+impl Display for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for section in self.sections.iter() {
+            writeln!(f, "{}\n", section)?;
+        }
+        Ok(())
+    }
 }
 
 /// A section of a project, such as a general-purpose `Section::Section` of content or a special `Section::Criteria` section listing design criteria.
@@ -36,6 +76,39 @@ pub enum Section {
         #[serde(rename = "item")]
         items: Vec<TitleDesc>,
     },
+}
+impl Display for Section {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Section::Section { title, content } => {
+                writeln!(
+                    f,
+                    "# {}",
+                    title.as_ref().map(|s| &s[..]).unwrap_or("Section")
+                )?;
+                let mut newline = false;
+                for element in content.iter() {
+                    if newline {
+                        writeln!(f)?;
+                    }
+                    write!(f, "{}", element)?;
+                    newline = true;
+                }
+            }
+            Section::Criteria { title, items } => {
+                write!(
+                    f,
+                    "# {}",
+                    title.as_ref().map(|s| &s[..]).unwrap_or("Design Criteria")
+                )?;
+                for item in items.iter() {
+                    writeln!(f, "\n## {}", item.title)?;
+                    writeln!(f, "{}", item.description)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A paired title and description.
@@ -71,12 +144,44 @@ pub enum Element {
         caption: Option<Text>,
     },
 }
+impl Display for Element {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Element::Group { content } => {
+                let mut newline = false;
+                for element in content.iter() {
+                    if newline {
+                        writeln!(f)?;
+                    }
+                    write!(f, "{}", element)?;
+                    newline = true;
+                }
+            }
+            Element::Paragraph(text) => writeln!(f, "{}", text)?,
+            Element::Image { src, alt, caption } => {
+                writeln!(f, "Image: {alt} ({src})")?;
+                if let Some(caption) = caption {
+                    writeln!(f, "Caption: {}", caption)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 /// Some text, consisting of several `TextElement`s.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Text {
     #[serde(rename = "$value", default)]
     text: Vec<TextElement>,
+}
+impl Display for Text {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for element in self.text.iter() {
+            write!(f, "{}", element)?;
+        }
+        Ok(())
+    }
 }
 
 /// A single element of text, a piece of text or hypertext (such as a link).
@@ -86,11 +191,38 @@ pub enum TextElement {
     Link {
         #[serde(rename = "@href")]
         href: String,
+        #[serde(rename = "@lead", default = "space")]
+        leading_space: String,
+        #[serde(rename = "@trail", default = "space")]
+        trailing_space: String,
         #[serde(rename = "$value")]
         text: Vec<TextElement>,
     },
     #[serde(rename = "$text")]
     Text(String),
+}
+fn space() -> String {
+    " ".to_string()
+}
+impl Display for TextElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TextElement::Link {
+                href,
+                text,
+                leading_space,
+                trailing_space,
+            } => {
+                write!(f, "{leading_space}[")?;
+                for element in text.iter() {
+                    write!(f, "{}", element)?;
+                }
+                write!(f, "]({href}){trailing_space}")?;
+            }
+            TextElement::Text(text) => write!(f, "{}", text)?,
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -104,67 +236,16 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize() {
-        let test = r#"
-        <?xml version="1.0" encoding="UTF-8"?>
-        <project>
-        <name>Garmin Testing Device</name>
-        <url>garmin</url>
-        <description>Underwater testing device for Garmin dive watches and air tank sensors, controlled automatically using a web app.</description>
-        <date>2022.12-2023.05</date>
-        <skills>
-            <skill>Embedded Development (ESP-IDF)</skill>
-            <skill>Frontend Web Development</skill>
-            <skill>PCB Design</skill>
-            <skill>Mechatronics</skill>
-            <skill>Control Systems</skill>
-        </skills>
-        <content>
-            <section>
-                <title>Overview</title>
-                <g>
-                    <p>Garmin's Sonar Engineering Team creates several dive watches and air tank sensors designed to communicate with each other using their SubWave Sonar technology while underwater. Until recently, to test and calibrate these precise devices, Garmin attached them to a boat using 12 ft PVC poles, leading to several feet of deflection during testing and decreasing both accuracy and repeatability of results.</p>
-                    <p>To make the testing and calibration process more stable, accurate, and consistent, I worked with a team of engineers in my EGR 102 class to design and build a new mounting system that would hold the dive watches and air tank sensors fixed in position underwater, while being controllable using a web app to set the exact depth and angular position of the devices being tested.</p>
-                    <p>As electrical team lead, I personally designed the mechatronic control system, from the motors used to physically move the testing rig to the UX of the web app used by engineers while performing tests, as well as all the microcontrollers and firmware in between.</p>
-                </g>
-            </section>
-            <criteria>
-                <title>Design Criteria</title>
-                <item>
-                    <title>Accuracy</title>
-                    <description>Control system must move devices to within 2" of the desired depth and 5° of the desired angle, withstanding forces from the weight of the device and underwater currents</description>
-                </item>
-                <item>
-                    <title>Durability</title>
-                    <description>The testing system will be stored outdoors on a boat and be operated underwater, but still must be built to last without significant maintainance.</description>
-                </item>
-                <item>
-                    <title>Usability</title>
-                    <description>Several test engineers will work with the system, so it should be fairly easy to use and understand, working with the engineers' goals and workflow rather than against them. In addition to human usability, it should also be easy to extend and integrate with current or future autonomous testing workflows.</description>
-                </item>
-            </criteria>
-            <section>
-                <title>Getting Physical</title>
-                <g>
-                    <p>While I can't take credit for the mechanical design or manufacturing of the testing rig's structure, making it move required finding the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
-                    <p>For the depth adjustment, we used a winch-like system with a motorized spool lifting the tested device up and down on a telescoping pole, while rotation was achieved by rotating the entire testing rig using a motorized belt. This was done to avoid placing any electronics underwater while maintaining full control over the device's position.</p>
-                    <p>For motors, we eventually chose small, high-gear-ratio DC motors (<a href="https://www.dfrobot.com/product-633.html">this one, in particular</a>) with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
-                </g>
-            </section>
-            <!--
-            TODO:
-            - PID Loop
-            - ESP32 Web Server, API
-            - Web App (PicoCSS)
-            - "Approaching Absolute Zero (Calibration)"
-            -->
-        </content>
-        <thumbnail>garm_boat.jpg</thumbnail>
-        <priority>20</priority>
-        </project>
-        "#;
-        let project: Project = quick_xml::de::from_str(test).unwrap();
-        println!("{}", serde_json::to_string_pretty(&project).unwrap());
+    fn test_to_string() {
+        let project = test_project();
+        println!("{}", project);
+    }
+
+    #[test]
+    fn test_links() {
+        let xml = "Testing <a trail=\"\" href=\"test.html\">links</a>.";
+        let text: Vec<TextElement> = quick_xml::de::from_str(xml).unwrap();
+        println!("{}", Text { text });
     }
 
     fn test_project() -> Project {
