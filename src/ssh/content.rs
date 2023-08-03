@@ -114,7 +114,7 @@ pub struct Directory {
 pub struct File {
     /// The raw contents of the file as a `String`.
     pub contents: String,
-    /// The contents of the file, as an array of lines.
+    /// The contents of the file, as an array of lines. There is always at least one (possibly-empty) line.
     pub lines: Vec<String>,
 }
 impl File {

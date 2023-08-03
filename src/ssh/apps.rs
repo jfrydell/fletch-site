@@ -223,20 +223,42 @@ impl<'a> RunningApp for Vim<'a> {
     fn data(&mut self, data: u8) -> Vec<u8> {
         match data {
             b'h'..=b'l' => {
+                enum Movement {
+                    X(isize),
+                    Y(isize),
+                }
                 // Cursor movement
-                let delta = match data {
-                    b'h' => (-1, 0),
-                    b'j' => (0, 1),
-                    b'k' => (0, -1),
-                    b'l' => (1, 0),
+                let movement = match data {
+                    b'h' => Movement::X(-1),
+                    b'j' => Movement::Y(1),
+                    b'k' => Movement::Y(-1),
+                    b'l' => Movement::X(1),
                     _ => unreachable!(),
                 };
-                // Get the new coordinates, clamped to the file's range.
-                let new_y = (self.cursor_pos.1 as isize + delta.1 as isize)
-                    .clamp(0, self.file.lines.len() as isize - 1)
-                    as usize;
-                let new_x = (self.cursor_pos.0 as isize + delta.0 as isize).max(0) as usize;
-                self.cursor_pos = (new_x, new_y);
+                match movement {
+                    Movement::X(delta) => {
+                        // Horizontal movement is a little complex due to beyond line end possibility.
+                        let last_char = self.file.lines[self.cursor_pos.1].len().max(1) - 1;
+                        if self.cursor_pos.0 >= last_char {
+                            // If we're at or beyond end, moving right is no-op. Moving left puts us on last character of line prior to executing move normally.
+                            if delta < 0 {
+                                self.cursor_pos.0 = last_char;
+                            } else {
+                                return vec![];
+                            }
+                        }
+                        // Get the new x coordinate, being careful not to overflow left
+                        let new_x = (self.cursor_pos.0 as isize + delta).max(0) as usize;
+                        self.cursor_pos.0 = new_x;
+                    }
+                    Movement::Y(delta) => {
+                        // Get the new coordinates, clamped to the file's range.
+                        let new_y = (self.cursor_pos.1 as isize + delta as isize)
+                            .clamp(0, self.file.lines.len() as isize - 1)
+                            as usize;
+                        self.cursor_pos.1 = new_y;
+                    }
+                }
                 // Update the cursor
                 self.update_cursor()
             }
@@ -255,9 +277,9 @@ impl<'a> RunningApp for Vim<'a> {
         self.term_size = (width as u16, height as u16);
         self.available_height = height as usize - 1;
 
-        // Update scroll position to maintain wrapping invariant (start at beginning of line)
-        let width = width as usize;
-        self.scroll_pos.0 = (self.cursor_pos.0 / width) * width;
-        self.render()
+        // If cursor is off screen, scroll to it
+        let mut result = self.update_cursor();
+        result.extend(self.render());
+        result
     }
 }
