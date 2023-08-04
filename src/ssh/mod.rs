@@ -28,7 +28,7 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
     let mut config = server::Config::default();
     config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
     let config = Arc::new(config);
-    let listener = TcpListener::bind(("0.0.0.0", 22)).await?;
+    let listener = TcpListener::bind(("0.0.0.0", 23)).await?;
 
     // Setup connection handling, initializing all necessary variables (could later include Vec of all connections and connection time or other load-managing stuff)
     let active_connections = Arc::new(AtomicUsize::new(0));
@@ -42,14 +42,19 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
         let conn_id = total_connections.fetch_add(1, atomic::Ordering::Relaxed);
         let conn_count = active_connections.fetch_add(1, atomic::Ordering::Relaxed) + 1;
         info!("New connection (#{conn_id}) from {addr} ({conn_count} active)");
-        let session_fut = server::run_stream(
-            Arc::clone(&config),
-            stream,
-            SshSession::new(conn_id, Arc::clone(&content)),
-        )
-        .await?;
-        let active_connections: Arc<AtomicUsize> = Arc::clone(&active_connections);
+        let active_connections = Arc::clone(&active_connections);
+        let config = Arc::clone(&config);
+        let content = Arc::clone(&content);
         tokio::spawn(async move {
+            let Ok(session_fut) = server::run_stream(
+                config,
+                stream,
+                SshSession::new(conn_id, content),
+            )
+            .await else {
+                error!("Error while setting up connection (#{conn_id}) from {addr}");
+                return;
+            };
             if let Err(e) = session_fut.await {
                 error!("Error in connection (#{conn_id}) from {addr}: {e}");
             }
