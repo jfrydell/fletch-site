@@ -1,20 +1,7 @@
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
-pub static WELCOME_MESSAGE: &[u8] = "=====================================\r
-|========== FLETCH RYDELL ==========|\r
-|========== *ssh edition* ==========|\r
-|===================================|\r
-|Welcome to the SSH version of my   |\r
-|website! This is a work in progress|\r
-|but I hope you enjoy it!           |\r
-|===================================|\r
-|To navigate, use the 'ls' and 'cd' |\r
-|commands to see the available pages|\r
-|and 'cat' or 'vi' to view them.    |\r
-|Type 'exit' or 'logout' to leave.  |\r
-=====================================\r
-"
-.as_bytes();
+pub static WELCOME_MESSAGE: &[u8] = "Welcome to the SSH version of my website! This is very much a work in progress, but I hope you enjoy it nonetheless!\r
+To navigate, use the 'ls' and 'cd' commands to see the available pages and 'cat' or 'vi' to view them. Type 'exit' or 'logout' to leave. Type 'help' anytime to see this message.".as_bytes();
 
 /// The rendered content for the SSH server.
 #[derive(Debug)]
@@ -68,6 +55,26 @@ impl SshContent {
             };
         }
         Some(dir)
+    }
+    /// Gets the file at the given path, if necessary relative to the given directory.
+    pub fn get_file(&self, current_dir: usize, full_path: &str) -> Option<&File> {
+        let (path, filename) = match full_path.rsplit_once('/') {
+            Some((directory, filename)) => {
+                if directory.starts_with('/') || directory.is_empty() {
+                    // Absolute path, no need for current path addition
+                    (Cow::Borrowed(directory), filename)
+                } else {
+                    let mut d = self.directories[current_dir].path.clone();
+                    d.push_str(directory);
+                    (Cow::Owned(d), filename)
+                }
+            }
+            None => (
+                Cow::Borrowed(self.directories[current_dir].path.as_str()),
+                full_path,
+            ),
+        };
+        self.dir_at(&path).and_then(|d| d.files.get(filename))
     }
     /// Add a child directory to a `Directory` specified by index, returning the index of the child.
     fn add_child(&mut self, parent_i: usize, child_name: String) -> usize {

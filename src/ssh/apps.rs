@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
 
@@ -179,31 +179,8 @@ impl<'a> RunningApp for Vim<'a> {
             .split(' ')
             .nth(1)
             .ok_or_else(|| Vec::from(b"vi: usage: vi <filename>\r\n" as &[u8]))?;
-        let (path, filename) = match full_path.rsplit_once('/') {
-            Some((directory, filename)) => {
-                if directory.starts_with('/') || directory.is_empty() {
-                    // Absolute path, no need for current path addition
-                    (Cow::Borrowed(directory), filename)
-                } else {
-                    let mut d = session.content.directories[session.current_dir]
-                        .path
-                        .clone();
-                    d.push_str(directory);
-                    (Cow::Owned(d), filename)
-                }
-            }
-            None => (
-                Cow::Borrowed(
-                    session.content.directories[session.current_dir]
-                        .path
-                        .as_str(),
-                ),
-                full_path,
-            ),
-        };
         let file = content
-            .dir_at(&path)
-            .and_then(|d| d.files.get(filename))
+            .get_file(session.current_dir, full_path)
             .ok_or_else(|| format!("vi: cannot open \"{}\": No such file\r\n", full_path))?;
         let vim = Vim {
             _ssh_content: Arc::clone(&content),

@@ -172,17 +172,23 @@ impl server::Handler for SshSession {
                                     );
                                 }
                             }
-                            "cat" => {
-                                let file = command.split(' ').nth(1).unwrap_or("");
-                                let current_dir = self.content.get(self.current_dir);
-                                if let Some(content) = current_dir.files.get(file) {
-                                    response.extend(content.raw_contents());
-                                } else {
-                                    response.extend(
-                                        format!("\"{}\": no such file\r\n", file).as_bytes(),
-                                    );
+                            "cat" => match command.split(' ').nth(1) {
+                                None => response.extend(b"cat: usage: cat <filename>\r\n"),
+                                Some(path) => {
+                                    match self.content.get_file(self.current_dir, path) {
+                                        None => response.extend(
+                                            format!(
+                                                "cat: cannot open \"{}\": No such file\r\n",
+                                                path
+                                            )
+                                            .as_bytes(),
+                                        ),
+                                        Some(file) => {
+                                            response.extend(file.raw_contents());
+                                        }
+                                    };
                                 }
-                            }
+                            },
                             "vi" => match Vim::startup(&self, command) {
                                 Ok((running_app, mut startup_resp)) => {
                                     self.running_app = Some(running_app);
