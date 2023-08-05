@@ -30,7 +30,7 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
         ed25519_dalek::Keypair::from_bytes(crate::CONFIG.ssh_key.to_bytes().as_ref()).unwrap(),
     )];
     let config = Arc::new(config);
-    let listener = TcpListener::bind(("0.0.0.0", 23)).await?;
+    let listener = TcpListener::bind(("0.0.0.0", crate::CONFIG.ssh_port)).await?;
 
     // Setup connection handling, initializing all necessary variables (could later include Vec of all connections and connection time or other load-managing stuff)
     let active_connections = Arc::new(AtomicUsize::new(0));
