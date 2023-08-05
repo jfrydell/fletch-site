@@ -46,9 +46,35 @@ impl HtmlServer {
 
     /// Run the server, running forever unless an error occurs.
     async fn run(self: Arc<Self>) -> Result<Infallible> {
-        axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], crate::CONFIG.http_port)))
-            .serve(self.router().into_make_service())
+        let sock_addr = SocketAddr::from(([0, 0, 0, 0], crate::CONFIG.http_port));
+        if let Some(cert_dir) = &crate::CONFIG.cert_dir {
+            let config = axum_server::tls_rustls::RustlsConfig::from_pem_file(
+                cert_dir.join("fullchain.pem"),
+                cert_dir.join("privkey.pem"),
+            )
             .await?;
+
+            // Start server with TLS, redirecting HTTP on port 80 to HTTPS
+            let start_server = async move {
+                tracing::info!("listening on https://{}", crate::CONFIG.http_port);
+                axum_server::bind_rustls(sock_addr, config)
+                    .serve(self.router().into_make_service())
+                    .await?;
+                Err(color_eyre::eyre::eyre!("Server stopped unexpectedly"))
+            };
+            tokio::select! {
+                e = start_server => e,
+                e = redirect_to_https() => e,
+            }?;
+        } else {
+            // Start server over HTTP
+            tracing::warn!("No TLS certificate found, starting server over HTTP");
+            tracing::info!("listening on http://{}", crate::CONFIG.http_port);
+            axum_server::bind(sock_addr)
+                .serve(self.router().into_make_service())
+                .await
+                .expect("Unable to start server");
+        }
         #[allow(unreachable_code)]
         Ok(unreachable!(
             "Server shouldn't shutdown unless an error occurs"
@@ -228,6 +254,40 @@ impl HtmlServer {
             );
         })
     }
+}
+
+/// Starts a server that redirects all HTTP requests to HTTPS.
+async fn redirect_to_https() -> Result<Infallible> {
+    use axum::{extract::Host, handler::HandlerWithoutStateExt, response::Redirect};
+    use hyper::{StatusCode, Uri};
+    fn make_https(host: String, uri: Uri) -> Result<Uri> {
+        let mut parts = uri.into_parts();
+        parts.scheme = Some(axum::http::uri::Scheme::HTTPS);
+        parts.authority = Some(host.parse()?);
+        Ok(Uri::from_parts(parts)?)
+    }
+
+    let redirect = move |Host(host): Host, uri: Uri| async move {
+        match make_https(host, uri) {
+            Ok(uri) => Ok(Redirect::permanent(&uri.to_string())),
+            Err(error) => {
+                tracing::warn!("Failed to convert URI to HTTPS: {error}");
+                Err(StatusCode::BAD_REQUEST)
+            }
+        }
+    };
+
+    let Some(port) = crate::CONFIG.http_redirect_port else {
+        return futures::future::pending().await;
+    };
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    tracing::info!("redirect server listening on http://{}", addr);
+    axum::Server::bind(&addr)
+        .serve(redirect.into_make_service())
+        .await?;
+    Err(color_eyre::eyre::eyre!(
+        "Redirect server unexpectedly exited without error"
+    ))
 }
 
 /// An extractor getting the desired version of the HTML content along with possibly-updated cookies. If the version is `None`,

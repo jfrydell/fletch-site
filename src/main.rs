@@ -1,4 +1,4 @@
-use std::{convert::Infallible, future::Future, sync::RwLock};
+use std::{convert::Infallible, future::Future, path::PathBuf, sync::RwLock};
 
 use base64::Engine;
 use color_eyre::{eyre::eyre, Result};
@@ -18,6 +18,10 @@ pub struct Config {
     pub domain: String,
     /// The HTTP port to listen on.
     pub http_port: u16,
+    /// The directory containing TLS certificates.
+    pub cert_dir: Option<PathBuf>,
+    /// A redirect port to listen for HTTP requests on, redirecting to HTTPS.
+    pub http_redirect_port: Option<u16>,
     /// The ssh port to listen on.
     pub ssh_port: u16,
     /// The ed25519 keypair to use for ssh.
@@ -37,6 +41,8 @@ impl Config {
         Ok(Self {
             domain: std::env::var("DOMAIN")?,
             http_port: Self::parse_var("HTTP_PORT")?,
+            cert_dir: std::env::var("CERT_DIR").map(PathBuf::from).ok(),
+            http_redirect_port: Self::parse_var("HTTP_REDIRECT_PORT").ok(),
             ssh_port: Self::parse_var("SSH_PORT")?,
             ssh_key: ed25519_dalek::Keypair::from_bytes(
                 &base64::engine::general_purpose::STANDARD
@@ -86,6 +92,8 @@ impl Config {
         debug!("Config:");
         debug!("  DOMAIN: {}", self.domain);
         debug!("  HTTP_PORT: {}", self.http_port);
+        debug!("  CERT_DIR: {:?}", self.cert_dir);
+        debug!("  HTTP_REDIRECT_PORT: {:?}", self.http_redirect_port);
         debug!("  SSH_PORT: {}", self.ssh_port);
         debug!("  WATCH_CONTENT: {}", self.watch_content);
         debug!("  LIVE_RELOAD: {}", self.live_reload);
@@ -202,7 +210,7 @@ where
     use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
     if !CONFIG.watch_content {
-        // If we're not watching content, just stop task (can't return because it's and endless task, but sleeping forever as good in `join!()`)
+        // If we're not watching content, just stop task (can't return because it's and endless task, but sleeping forever as good in `select!()`)
         return Ok(futures::future::pending::<Infallible>().await);
     }
 
