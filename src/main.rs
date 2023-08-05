@@ -1,5 +1,6 @@
 use std::{convert::Infallible, future::Future, sync::RwLock};
 
+use base64::Engine;
 use color_eyre::{eyre::eyre, Result};
 use once_cell::sync::Lazy;
 use serde::Serialize;
@@ -15,12 +16,30 @@ pub static CONFIG: Lazy<Config> = Lazy::new(Config::load);
 pub struct Config {
     /// Our domain name.
     pub domain: String,
+    /// The ssh port to listen on.
+    pub ssh_port: u16,
+    /// The ed25519 keypair to use for ssh.
+    pub ssh_key: ed25519_dalek::Keypair,
 }
 impl Config {
     /// Loads the config from env vars.
     fn load() -> Self {
         Self {
             domain: std::env::var("DOMAIN").expect("Missing DOMAIN env var"),
+            ssh_port: std::env::var("SSH_PORT")
+                .expect("Missing SSH_PORT env var")
+                .parse()
+                .expect("Invalid SSH_PORT env var"),
+            ssh_key: ed25519_dalek::Keypair::from_bytes(
+                &base64::engine::general_purpose::STANDARD
+                    .decode(
+                        std::env::var("SSH_KEY")
+                            .expect("Missing SSH_KEY env var")
+                            .as_bytes(),
+                    )
+                    .expect("Invalid SSH_KEY env var (not base64)"),
+            )
+            .expect("Invalid SSH_KEY env var (not ed25519)"),
         }
     }
 }

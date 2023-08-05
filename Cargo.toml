@@ -9,7 +9,9 @@ edition = "2021"
 async-trait = "0.1.68"
 axum = {version = "0.6.18", features = ["ws"]}
 axum-extra = { version = "0.7.4", features = ["cookie"] }
+base64 = "0.21.2"
 color-eyre = "0.6.2"
+ed25519-dalek = "1.0.1"
 futures = "0.3.28"
 hyper = "0.14.27"
 notify = "5.1.0"

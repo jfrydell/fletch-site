@@ -26,7 +26,9 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
     // Setup content, config, and listener
     let content = Arc::new(SshContent::new(&crate::CONTENT.read().unwrap()));
     let mut config = server::Config::default();
-    config.keys = vec![key::KeyPair::generate_ed25519().unwrap()];
+    config.keys = vec![key::KeyPair::Ed25519(
+        ed25519_dalek::Keypair::from_bytes(crate::CONFIG.ssh_key.to_bytes().as_ref()).unwrap(),
+    )];
     let config = Arc::new(config);
     let listener = TcpListener::bind(("0.0.0.0", 23)).await?;
 
