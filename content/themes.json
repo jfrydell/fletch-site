@@ -8,7 +8,7 @@
         {
             "name": "Simple",
             "path": "simple",
-            "description": "Tired of all the fancy stuff? This theme is for you! I handwrote some minimal CSS to make this site look decent and nothing more."
+            "description": "Are you tired of all the fancy stuff? Does the phrase 'CSS framework' make you cower in fear? This theme is for you! I handwrote some minimal CSS to make this site look decent and nothing more."
         },
         {
             "name": "Pure",
@@ -16,5 +16,5 @@
             "description": "Even CSS is too much for you? Just the 'simple' HTML, but with none of those pesky stylesheets."
         }
     ],
-    "about_text": "To allow users to have the best browsing experience, I decided to create a few different versions of this site for them to choose from. The content should be the exact same for all of them, but the presentation will be different. Your current theme is stored in a cookie, which is updated by specifying a \"version=VERSION\" query parameter in any url. Of course, all versions of the site require a web browser to access, so if you don't have that (well first of all, how'd you find this site?), you can access the site via SSH (coming soon!)."
+    "about_text": "To allow users to have the best browsing experience (read: because I have too much free time), I decided to create a few different versions of this site that you can choose from. All themes share the same content, they differ only in presentation. Your current theme is stored in a cookie, which is updated by specifying a \"version=VERSION\" query parameter in any url. Of course, all versions of the site require a web browser to access, so if you don't have that (well first of all, how'd you find this site?), feel free to just SSH into the server and read the files directly!"
 }
