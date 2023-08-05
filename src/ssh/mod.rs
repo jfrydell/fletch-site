@@ -24,7 +24,7 @@ mod terminal;
 pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
     // TODO: add live-reload when we get message from _rx
     // Setup content, config, and listener
-    let content = Arc::new(SshContent::new(&crate::CONTENT.read().unwrap()));
+    let content = Arc::new(SshContent::new(&crate::CONTENT.read().unwrap())?);
     let mut config = server::Config::default();
     config.keys = vec![key::KeyPair::Ed25519(
         ed25519_dalek::Keypair::from_bytes(crate::CONFIG.ssh_key.to_bytes().as_ref()).unwrap(),

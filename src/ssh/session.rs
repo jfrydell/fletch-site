@@ -148,6 +148,7 @@ impl server::Handler for SshSession {
                                 session.disconnect(Disconnect::ByApplication, "Goodbye!", "");
                                 return Ok((self, session));
                             }
+                            "help" => response.extend(super::content::WELCOME_MESSAGE),
                             "ls" => {
                                 let current_dir = self.content.get(self.current_dir);
                                 for (name, _) in current_dir.directories.iter() {

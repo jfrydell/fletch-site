@@ -83,7 +83,7 @@ impl<'a> Vim<'a> {
                 }
             }
         }
-        response.extend(b"\r\n: Ctrl-H for help");
+        response.extend(b"\r\n: Ctrl-C to quit");
 
         // Reset the cursor, first finding screen coordinates. We assume that the current scroll is valid,
         // so we cast using `as`. If the coordinates are out of bounds, this is a bug / unconsidered edge case
