@@ -46,7 +46,7 @@ impl HtmlServer {
 
     /// Run the server, running forever unless an error occurs.
     async fn run(self: Arc<Self>) -> Result<Infallible> {
-        axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], 3000)))
+        axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], crate::CONFIG.http_port)))
             .serve(self.router().into_make_service())
             .await?;
         #[allow(unreachable_code)]
@@ -89,7 +89,8 @@ impl HtmlServer {
 
     /// Creates the Axum router for the HTML server.
     fn router(self: Arc<Self>) -> Router {
-        Router::new()
+        // Build router for all normal pages
+        let mut router = Router::new()
             .route(
                 "/",
                 get(
@@ -116,9 +117,14 @@ impl HtmlServer {
                     },
                 ),
             )
-            .route("/ws", get(Self::ws_handler))
             .nest("/defaulthtml", defaulthtml::Content::router())
-            .nest("/simplehtml", simplehtml::Content::router())
+            .nest("/simplehtml", simplehtml::Content::router());
+        // Add websocket handler if live reload is enabled
+        if crate::CONFIG.live_reload {
+            router = router.route("/ws", get(Self::ws_handler));
+        }
+        // Finish router with state, static, and logging
+        router
             .with_state(self)
             .nest_service("/images/", ServeDir::new("content/images/"))
             .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -144,16 +150,18 @@ impl HtmlServer {
 
         // Serve page if possible, otherwise 404
         match response_body {
-            Some(response_body) => {
-                // Inject websocket script and serve
-                let response_body = response_body.replace(
-                    "</head>",
-                    r#"<script>
+            Some(mut response_body) => {
+                // Inject websocket script if necessary and serve
+                if crate::CONFIG.live_reload {
+                    response_body = response_body.replace(
+                        "</head>",
+                        r#"<script>
                         const ws = new WebSocket(`ws://${window.location.host}/ws`);
                         ws.onmessage = () => window.location.reload();
                     </script>
                     </head>"#,
-                );
+                    );
+                }
                 (cookies, Html(response_body)).into_response()
             }
             None => axum::http::StatusCode::NOT_FOUND.into_response(),
@@ -175,6 +183,9 @@ impl HtmlServer {
 
     /// Reloads all connected clients.
     fn reload_clients(&self) {
+        if !crate::CONFIG.live_reload {
+            return;
+        }
         let n = self.websocket_tx.send(()).unwrap_or(0);
         info!("Reloaded {n} clients");
     }

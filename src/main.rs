@@ -22,7 +22,9 @@ pub struct Config {
     pub ssh_port: u16,
     /// The ed25519 keypair to use for ssh.
     pub ssh_key: ed25519_dalek::Keypair,
-    /// Whether to watch for changes to the content directory.
+    /// Whether to watch for changes to the content directory (as well as any HTML templates) to update content.
+    ///
+    /// Currently affects all filesystem watching, but may be split into separate flags in the future.
     pub watch_content: bool,
     /// Whether to enable live reloading for HTTP clients on content changes.
     pub live_reload: bool,
@@ -79,6 +81,17 @@ impl Config {
             }
         }
     }
+    /// Logs all non-sensitive config values at debug level.
+    fn log(&self) {
+        debug!("Config:");
+        debug!("  DOMAIN: {}", self.domain);
+        debug!("  HTTP_PORT: {}", self.http_port);
+        debug!("  SSH_PORT: {}", self.ssh_port);
+        debug!("  WATCH_CONTENT: {}", self.watch_content);
+        debug!("  LIVE_RELOAD: {}", self.live_reload);
+        debug!("  SHOW_HIDDEN: {}", self.show_hidden);
+        debug!("End config.")
+    }
 }
 
 #[derive(Serialize)]
@@ -105,6 +118,11 @@ impl Content {
             }
         }
         projects.sort_by_key(|p| -p.priority);
+
+        // If we disabled hidden projects, remove any with priority <= 0
+        if !CONFIG.show_hidden {
+            projects.retain(|p| p.priority > 0);
+        }
 
         // Load index and themes info
         let index_info =
@@ -140,8 +158,8 @@ async fn main() -> Result<Infallible> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    // Load lazy Config to ensure it's valid and cached
-    let _: &Config = &CONFIG;
+    // Log config (partly to ensure it's loaded)
+    CONFIG.log();
 
     // Load initial content
     *CONTENT.write().unwrap() = Content::load().await.expect("Failed to load content");
@@ -182,6 +200,11 @@ where
     Fut: Future<Output = Result<()>>,
 {
     use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
+
+    if !CONFIG.watch_content {
+        // If we're not watching content, just stop task (can't return because it's and endless task, but sleeping forever as good in `join!()`)
+        return Ok(futures::future::pending::<Infallible>().await);
+    }
 
     // Create an mpsc channel to send events to executor (allows verifying no new changes before sending broadcast)
     let (tx, mut rx) = tokio::sync::mpsc::channel(4);
