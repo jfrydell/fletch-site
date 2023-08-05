@@ -175,10 +175,7 @@ impl HtmlServer {
 
     /// Reloads all connected clients.
     fn reload_clients(&self) {
-        let n = match self.websocket_tx.send(()) {
-            Ok(n) => n,
-            Err(_) => 0,
-        };
+        let n = self.websocket_tx.send(()).unwrap_or(0);
         info!("Reloaded {n} clients");
     }
 
