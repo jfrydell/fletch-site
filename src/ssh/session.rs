@@ -89,29 +89,19 @@ impl server::Handler for SshSession {
 
     async fn pty_request(
         mut self,
-        _channel: ChannelId,
+        channel: ChannelId,
         _term: &str,
         col_width: u32,
         row_height: u32,
         _pix_width: u32,
         _pix_height: u32,
         _modes: &[(russh::Pty, u32)],
-        session: Session,
+        mut session: Session,
     ) -> Result<(Self, Session), Self::Error> {
         debug!(
             "got pty request (see russh/server/mod.rs: 497 for default impl, not sure if needed)"
         );
         self.term_size = (col_width, row_height);
-        Ok((self, session))
-    }
-
-    async fn shell_request(
-        self,
-        channel: ChannelId,
-        mut session: Session,
-    ) -> Result<(Self, Session), Self::Error> {
-        debug!("Client {} requested shell", self.id);
-
         session.data(channel, Vec::from(WELCOME_MESSAGE).into());
         session.data(channel, CryptoVec::from(self.prompt()));
         Ok((self, session))
