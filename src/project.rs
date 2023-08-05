@@ -11,7 +11,7 @@ pub struct Project {
     pub content: Content,
     pub thumbnail: String,
     pub skills: Skills,
-    /// The priority of this project, used for sorting.
+    /// The priority of this project, used for sorting. Non-positive priority projects are hidden by default.
     pub priority: i32,
 }
 impl Display for Project {

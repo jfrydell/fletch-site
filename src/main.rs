@@ -5,31 +5,37 @@ use color_eyre::{eyre::eyre, Result};
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use tokio::sync::broadcast;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, log::warn};
 
 mod html;
 mod project;
 mod ssh;
 
-pub static CONFIG: Lazy<Config> = Lazy::new(Config::load);
+pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
 #[derive(Debug)]
 pub struct Config {
-    /// Our domain name.
+    /// Our domain name, shown in SSH prompts and some links.
     pub domain: String,
+    /// The HTTP port to listen on.
+    pub http_port: u16,
     /// The ssh port to listen on.
     pub ssh_port: u16,
     /// The ed25519 keypair to use for ssh.
     pub ssh_key: ed25519_dalek::Keypair,
+    /// Whether to watch for changes to the content directory.
+    pub watch_content: bool,
+    /// Whether to enable live reloading for HTTP clients on content changes.
+    pub live_reload: bool,
+    /// Whether to show hidden projects (those with priority <= 0).
+    pub show_hidden: bool,
 }
 impl Config {
     /// Loads the config from env vars.
-    fn load() -> Self {
-        Self {
-            domain: std::env::var("DOMAIN").expect("Missing DOMAIN env var"),
-            ssh_port: std::env::var("SSH_PORT")
-                .expect("Missing SSH_PORT env var")
-                .parse()
-                .expect("Invalid SSH_PORT env var"),
+    fn load() -> Result<Self> {
+        Ok(Self {
+            domain: std::env::var("DOMAIN")?,
+            http_port: Self::parse_var("HTTP_PORT")?,
+            ssh_port: Self::parse_var("SSH_PORT")?,
             ssh_key: ed25519_dalek::Keypair::from_bytes(
                 &base64::engine::general_purpose::STANDARD
                     .decode(
@@ -40,6 +46,37 @@ impl Config {
                     .expect("Invalid SSH_KEY env var (not base64)"),
             )
             .expect("Invalid SSH_KEY env var (not ed25519)"),
+            watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
+            live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
+            show_hidden: Self::parse_var_default("SHOW_HIDDEN", false)?,
+        })
+    }
+    /// Helper to load an env var, returning an error if it's missing or invalid
+    fn parse_var<T>(var: &str) -> Result<T>
+    where
+        T: std::str::FromStr + std::fmt::Display,
+        <T as std::str::FromStr>::Err: std::fmt::Display,
+    {
+        std::env::var(var)
+            .map_err(|e| eyre!("Missing {} env var: {}", var, e))?
+            .parse()
+            .map_err(|e| eyre!("Invalid {} env var: {}", var, e))
+    }
+    /// Helper to load an env var, logging a warning but returning a default value if it's missing and returning an error if it's invalid.
+    fn parse_var_default<T>(var: &str, default: T) -> Result<T>
+    where
+        T: std::str::FromStr + std::fmt::Display,
+        <T as std::str::FromStr>::Err: std::fmt::Display,
+    {
+        match std::env::var(var) {
+            Ok(v) => match v.parse() {
+                Ok(v) => Ok(v),
+                Err(e) => Err(eyre!("Invalid {} env var: {}", var, e)),
+            },
+            Err(_) => {
+                warn!("Missing {} env var, defaulting to {}", var, default);
+                Ok(default)
+            }
         }
     }
 }
@@ -102,6 +139,9 @@ async fn main() -> Result<Infallible> {
     tracing_subscriber::fmt::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
+
+    // Load lazy Config to ensure it's valid and cached
+    let _: &Config = &CONFIG;
 
     // Load initial content
     *CONTENT.write().unwrap() = Content::load().await.expect("Failed to load content");

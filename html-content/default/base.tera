@@ -27,7 +27,7 @@
   {% endblock head %}
 </head>
 
-<body class="font-serif dark:bg-zinc-900 dark:text-zinc-200">
+<body class="font-serif dark:bg-zinc-800 dark:text-zinc-200">
   {% block header %}
   <header class="font-sans mx-auto bg-sky-900 text-white text-center">
     <h1 class="text-5xl font-bold tracking-wide pt-14">{% block header_title %}{% endblock %}</h1>

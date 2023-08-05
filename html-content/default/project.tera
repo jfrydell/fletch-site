@@ -27,7 +27,7 @@
   {% for element in elements %}
   <div class="{% if loop.first and reverse %}order-1{% endif %}">
     {% if loop.first %}
-    <h2 class="text-3xl mb-2 text-sky-600 tracking-wide">
+    <h2 class="text-3xl mb-2 text-sky-600 dark:text-sky-500 tracking-wide">
       {{ section.title }}
     </h2>
     {% endif %}
