@@ -69,19 +69,19 @@
   {% for item in items %}
   <div class="max-w-xl mx-6 lg:mx-0">
     <h3 class="text-2xl text-center">{{item.title}}</h3>
-    <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
+    <p class="text-sm text-center">{{ self::render_text(text = item.description, link_style = "underline") }}</p>
   </div>
   {%- endfor -%}
 </section>
 {%- endmacro -%}
 
 {# Renderes a `Text` struct, containing a `$value` array of `TextElement`s (text and links). #}
-{% macro render_text(text) %}
+{% macro render_text(text, link_style="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500") %}
 {%- for element in text["$value"] -%}
 {%- if element["$text"] -%}
 {{ element["$text"] }}
 {%- elif element["a"] -%}
-{{ element.a['@lead'] }}<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500" href="{{ element.a['@href'] }}">{{
+{{ element.a['@lead'] }}<a class="{{ link_style }}" href="{{ element.a['@href'] }}">{{
   self::render_text(text = element["a"]) }}</a>{{ element.a['@trail'] }}
 {%- endif -%}
 {%- endfor -%}
