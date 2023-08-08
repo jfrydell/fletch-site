@@ -72,7 +72,10 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
         });
         tokio::spawn(async move {
             // Get channel for closing connection
-            let channel = channel_rx.await.unwrap();
+            let Ok(channel) = channel_rx.await else {
+                error!("Error receiving channel for connection (#{conn_id}) from {addr} (presumably due to error in connection setup)");
+                return;
+            };
             // Wait for timeout and close connection
             if resetting_timeout(timeout_reset_rx, crate::CONFIG.ssh_timeout).await {
                 info!("Connection (#{conn_id}) from {addr} timed out");
