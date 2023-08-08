@@ -101,6 +101,7 @@ impl Config {
         debug!("  CERT_DIR: {:?}", self.cert_dir);
         debug!("  HTTP_REDIRECT_PORT: {:?}", self.http_redirect_port);
         debug!("  SSH_PORT: {}", self.ssh_port);
+        debug!("  SSH_TIMEOUT: {}", self.ssh_timeout.as_secs());
         debug!("  WATCH_CONTENT: {}", self.watch_content);
         debug!("  LIVE_RELOAD: {}", self.live_reload);
         debug!("  SHOW_HIDDEN: {}", self.show_hidden);
