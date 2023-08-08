@@ -57,16 +57,18 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
         // Make channel to receive timeout resets
         let (timeout_reset, timeout_reset_rx) = mpsc::channel(1);
         tokio::spawn(async move {
-            let Ok(session_fut) = server::run_stream(
+            match server::run_stream(
                 config,
                 stream,
                 SshSession::new(conn_id, content, channel_tx, timeout_reset),
             )
-            .await else {
-                error!("Error while setting up connection (#{conn_id}) from {addr}");
-                return;
+            .await
+            {
+                Ok(session_fut) => {
+                    let _ = session_fut.await;
+                }
+                Err(_) => error!("Error while setting up connection (#{conn_id}) from {addr}"),
             };
-            let _ = session_fut.await;
             let now_active = active_connections.fetch_sub(1, atomic::Ordering::Relaxed) - 1;
             info!("Connection (#{conn_id}) from {addr} closed ({now_active} active)");
         });
