@@ -4,12 +4,16 @@ use std::{
         atomic::{self, AtomicUsize},
         Arc,
     },
+    time::Duration,
 };
 
 use color_eyre::Result;
 use russh::server::{self};
 use russh_keys::key;
-use tokio::{net::TcpListener, sync::broadcast};
+use tokio::{
+    net::TcpListener,
+    sync::{broadcast, mpsc, oneshot},
+};
 use tracing::{error, info};
 
 use crate::ssh::content::SshContent;
@@ -44,24 +48,55 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
         let conn_id = total_connections.fetch_add(1, atomic::Ordering::Relaxed);
         let conn_count = active_connections.fetch_add(1, atomic::Ordering::Relaxed) + 1;
         info!("New connection (#{conn_id}) from {addr} ({conn_count} active)");
+        // Clone vars for task
         let active_connections = Arc::clone(&active_connections);
         let config = Arc::clone(&config);
         let content = Arc::clone(&content);
+        // Receiver for ChannelId to allow closing connection remotely
+        let (channel_tx, channel_rx) = oneshot::channel();
+        // Make channel to receive timeout resets
+        let (timeout_reset, timeout_reset_rx) = mpsc::channel(1);
         tokio::spawn(async move {
             let Ok(session_fut) = server::run_stream(
                 config,
                 stream,
-                SshSession::new(conn_id, content),
+                SshSession::new(conn_id, content, channel_tx, timeout_reset),
             )
             .await else {
                 error!("Error while setting up connection (#{conn_id}) from {addr}");
                 return;
             };
-            if let Err(e) = session_fut.await {
-                error!("Error in connection (#{conn_id}) from {addr}: {e}");
-            }
+            let _ = session_fut.await;
             let now_active = active_connections.fetch_sub(1, atomic::Ordering::Relaxed) - 1;
             info!("Connection (#{conn_id}) from {addr} closed ({now_active} active)");
         });
+        tokio::spawn(async move {
+            // Get channel for closing connection
+            let channel = channel_rx.await.unwrap();
+            // Wait for timeout and close connection
+            if resetting_timeout(timeout_reset_rx, crate::CONFIG.ssh_timeout).await {
+                info!("Connection (#{conn_id}) from {addr} timed out");
+                if let Err(e) = channel.close().await {
+                    error!("Error closing connection (#{conn_id}) from {addr}: {e}");
+                }
+            }
+        });
+    }
+}
+
+/// Helper function that times out (returning `true`) if no message is received within a certain duration. If the sender closes, the function returns `false`.
+async fn resetting_timeout(mut reset_signal: mpsc::Receiver<()>, timeout: Duration) -> bool {
+    loop {
+        tokio::select! {
+            _ = tokio::time::sleep(timeout) => {
+                return true;
+            }
+            x = reset_signal.recv() => {
+                if x.is_none() {
+                    return false;
+                }
+                continue;
+            }
+        }
     }
 }

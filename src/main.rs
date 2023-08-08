@@ -1,4 +1,4 @@
-use std::{convert::Infallible, future::Future, path::PathBuf, sync::RwLock};
+use std::{convert::Infallible, future::Future, path::PathBuf, sync::RwLock, time::Duration};
 
 use base64::Engine;
 use color_eyre::{eyre::eyre, Result};
@@ -26,6 +26,8 @@ pub struct Config {
     pub ssh_port: u16,
     /// The ed25519 keypair to use for ssh.
     pub ssh_key: ed25519_dalek::Keypair,
+    /// The timeout at which to close idle ssh connections (given in seconds).
+    pub ssh_timeout: Duration,
     /// Whether to watch for changes to the content directory (as well as any HTML templates) to update content.
     ///
     /// Currently affects all filesystem watching, but may be split into separate flags in the future.
@@ -54,6 +56,10 @@ impl Config {
                     .expect("Invalid SSH_KEY env var (not base64)"),
             )
             .expect("Invalid SSH_KEY env var (not ed25519)"),
+            ssh_timeout: std::time::Duration::from_secs(Self::parse_var_default(
+                "SSH_TIMEOUT",
+                30,
+            )?),
             watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
             live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
             show_hidden: Self::parse_var_default("SHOW_HIDDEN", false)?,

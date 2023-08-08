@@ -6,8 +6,9 @@ use russh::{
     server::{self, Msg, Session},
     Channel, ChannelId, CryptoVec, Disconnect,
 };
-use russh_keys::key;
 
+use russh_keys::key;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info};
 
 use crate::ssh::{apps::Vim, content::WELCOME_MESSAGE};
@@ -26,9 +27,18 @@ pub struct SshSession {
     pub current_dir: usize,
     pub term_size: (u32, u32),
     pub running_app: Option<Box<dyn RunningApp>>,
+    /// A channel to send the russh `ChannelId` back to the main loop, allowing it to close the connection remotely. After sending the channel, this is set to `None`.
+    pub channel_tx: Option<oneshot::Sender<Channel<Msg>>>,
+    /// A channel to refresh the timeout on this session.
+    pub timeout_refresh: mpsc::Sender<()>,
 }
 impl SshSession {
-    pub fn new(id: usize, content: Arc<SshContent>) -> Self {
+    pub fn new(
+        id: usize,
+        content: Arc<SshContent>,
+        channel_tx: oneshot::Sender<Channel<Msg>>,
+        timeout_refresh: mpsc::Sender<()>,
+    ) -> Self {
         Self {
             id,
             shell: Shell::default(),
@@ -37,6 +47,8 @@ impl SshSession {
             current_dir: 0,
             term_size: (80, 24), // Just a guess, will be updated on connect anyway (TODO: make Option to do this right)
             running_app: None,
+            timeout_refresh,
+            channel_tx: Some(channel_tx),
         }
     }
     /// Handle auth, accepting everyone and setting the username.
@@ -66,11 +78,18 @@ impl server::Handler for SshSession {
 
     async fn channel_open_session(
         mut self,
-        _channel: Channel<Msg>,
+        channel: Channel<Msg>,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
-        // TODO QUESTION: what do i have to do with these channels?
-        Ok((self, true, session))
+        // If we haven't opened a channel yet, send the channel ID back to the main loop and allow it. Otherwise, reject the channel (to keep only one going).
+        // Not sure if this is at all a good idea, but it works for now (chosen because it's the only way I could find to close the connection from the main loop).
+        if let Some(tx) = self.channel_tx.take() {
+            tx.send(channel)
+                .map_err(|_| color_eyre::eyre::eyre!("Failed to send channel ID to main loop"))?;
+            Ok((self, true, session))
+        } else {
+            Ok((self, false, session))
+        }
     }
 
     async fn auth_none(self, user: &str) -> Result<(Self, server::Auth), Self::Error> {
@@ -130,6 +149,7 @@ impl server::Handler for SshSession {
         data: &[u8],
         mut session: Session,
     ) -> Result<(Self, Session), Self::Error> {
+        self.timeout_refresh.send(()).await?;
         // println!("Client {} sent data: {:?}", self.id, data);
 
         // Process data
