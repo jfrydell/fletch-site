@@ -101,16 +101,30 @@ impl Config {
     }
     /// Logs all non-sensitive config values at debug level.
     fn log(&self) {
+        let Self {
+            domain,
+            http_port,
+            cert_dir,
+            http_redirect_port,
+            ssh_port,
+            ssh_timeout,
+            ssh_first_timeout,
+            watch_content,
+            live_reload,
+            show_hidden,
+            ssh_key: _,
+        } = self;
         debug!("Config:");
-        debug!("  DOMAIN: {}", self.domain);
-        debug!("  HTTP_PORT: {}", self.http_port);
-        debug!("  CERT_DIR: {:?}", self.cert_dir);
-        debug!("  HTTP_REDIRECT_PORT: {:?}", self.http_redirect_port);
-        debug!("  SSH_PORT: {}", self.ssh_port);
-        debug!("  SSH_TIMEOUT: {}", self.ssh_timeout.as_secs());
-        debug!("  WATCH_CONTENT: {}", self.watch_content);
-        debug!("  LIVE_RELOAD: {}", self.live_reload);
-        debug!("  SHOW_HIDDEN: {}", self.show_hidden);
+        debug!("  DOMAIN: {}", domain);
+        debug!("  HTTP_PORT: {}", http_port);
+        debug!("  CERT_DIR: {:?}", cert_dir);
+        debug!("  HTTP_REDIRECT_PORT: {:?}", http_redirect_port);
+        debug!("  SSH_PORT: {}", ssh_port);
+        debug!("  SSH_TIMEOUT: {}", ssh_timeout.as_secs());
+        debug!("  SSH_FIRST_TIMEOUT: {}", ssh_first_timeout.as_secs());
+        debug!("  WATCH_CONTENT: {}", watch_content);
+        debug!("  LIVE_RELOAD: {}", live_reload);
+        debug!("  SHOW_HIDDEN: {}", show_hidden);
         debug!("End config.")
     }
 }
