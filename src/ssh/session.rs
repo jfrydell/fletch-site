@@ -9,7 +9,7 @@ use russh::{
 
 use russh_keys::key;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, info};
+use tracing::{debug, info, trace};
 
 use crate::ssh::{apps::Vim, content::WELCOME_MESSAGE};
 
@@ -150,7 +150,7 @@ impl server::Handler for SshSession {
         mut session: Session,
     ) -> Result<(Self, Session), Self::Error> {
         self.timeout_refresh.send(()).await?;
-        // println!("Client {} sent data: {:?}", self.id, data);
+        trace!("Client {} sent data: {:?}", self.id, data);
 
         // Process data
         let mut response = vec![];

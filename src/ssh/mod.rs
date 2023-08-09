@@ -65,6 +65,7 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
             .await
             {
                 Ok(session_fut) => {
+                    info!("Connection #{conn_id} from {addr} successfully set up");
                     let _ = session_fut.await;
                 }
                 Err(_) => error!("Error while setting up connection (#{conn_id}) from {addr}"),
@@ -75,11 +76,17 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
         tokio::spawn(async move {
             // Get channel for closing connection
             let Ok(channel) = channel_rx.await else {
-                error!("Error receiving channel for connection (#{conn_id}) from {addr} (presumably due to error in connection setup)");
+                // The connection must have closed, dropping `channel_tx`
                 return;
             };
             // Wait for timeout and close connection
-            if resetting_timeout(timeout_reset_rx, crate::CONFIG.ssh_timeout).await {
+            if resetting_timeout(
+                timeout_reset_rx,
+                crate::CONFIG.ssh_timeout,
+                crate::CONFIG.ssh_first_timeout,
+            )
+            .await
+            {
                 info!("Connection (#{conn_id}) from {addr} timed out");
                 if let Err(e) = channel.close().await {
                     error!("Error closing connection (#{conn_id}) from {addr}: {e}");
@@ -90,18 +97,24 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
 }
 
 /// Helper function that times out (returning `true`) if no message is received within a certain duration. If the sender closes, the function returns `false`.
-async fn resetting_timeout(mut reset_signal: mpsc::Receiver<()>, timeout: Duration) -> bool {
+async fn resetting_timeout(
+    mut reset_signal: mpsc::Receiver<()>,
+    timeout: Duration,
+    initial_timeout: Duration,
+) -> bool {
+    let sleep = tokio::time::sleep(initial_timeout);
+    tokio::pin!(sleep);
     loop {
         tokio::select! {
-            _ = tokio::time::sleep(timeout) => {
+            _ = &mut sleep => {
                 return true;
             }
             x = reset_signal.recv() => {
                 if x.is_none() {
                     return false;
                 }
-                continue;
             }
         }
+        sleep.as_mut().reset(tokio::time::Instant::now() + timeout);
     }
 }

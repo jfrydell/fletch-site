@@ -28,6 +28,8 @@ pub struct Config {
     pub ssh_key: ed25519_dalek::Keypair,
     /// The timeout at which to close idle ssh connections (given in seconds).
     pub ssh_timeout: Duration,
+    /// The first data timeout for ssh connections; new connections will be closed if no data is received within this time (given in seconds).
+    pub ssh_first_timeout: Duration,
     /// Whether to watch for changes to the content directory (as well as any HTML templates) to update content.
     ///
     /// Currently affects all filesystem watching, but may be split into separate flags in the future.
@@ -58,6 +60,10 @@ impl Config {
             .expect("Invalid SSH_KEY env var (not ed25519)"),
             ssh_timeout: std::time::Duration::from_secs(Self::parse_var_default(
                 "SSH_TIMEOUT",
+                30,
+            )?),
+            ssh_first_timeout: std::time::Duration::from_secs(Self::parse_var_default(
+                "SSH_FIRST_TIMEOUT",
                 30,
             )?),
             watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
