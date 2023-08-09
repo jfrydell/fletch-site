@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+<name>This Website</name>
+<url>website</url>
+<description>The website you're currently on! Powered by my own static site generator and server.</description>
+<date>2022.12-2023.05</date>
+<skills>
+    <skill>Rust Development</skill>
+    <skill>Web Design</skill>
+    <skill>Backend Web Development (Axum)</skill>
+</skills>
+<content>
+    <section>
+        <title>Overview</title>
+        <g>
+            <p>I created this website in the summer of 2023 to have a somewhat-independent internet presence. The basic goal was to feature some of the projects I've worked on and potentially a blog, but my real motivation was the desire to put as many unnecessary features in it as possible.</p>
+            <p>While I haven't implemented very many of my ideas yet, I've done enough that it seems worthwhile to explain/track my progress here.</p>
+        </g>
+    </section>
+    <criteria>
+        <title>Main Features</title>
+        <item>
+            <title>All The Themes</title>
+            <description>What kind of website has only one appearence? Obviously, dark/light mode is a must, but the dream is to have a wide variety of themes that users can pick from, each completly changing the style of site. Want pure HTML with no styling whatsoever? I've got you covered! Want a scrolljacking nightmare where each word flies around your screen? It's coming soon!</description>
+        </item>
+        <item>
+            <title>All The Protocols</title>
+            <description>Everyone loves HTTPS. (Almost) any site can be securely and simply accessed using HTTPS over port 443. But it's so BORING. I want MORE. Only have port 22 available? Feel free to SSH on in! You'd rather use <a href="https://en.wikipedia.org/wiki/WHOIS#Protocol" trail="">WHOIS</a>? I'm still trying to think of a way to deliver content with it, but when I do, get ready!</description>
+        </item>
+        <item>
+            <title>All The DX</title>
+            <description>I'm selfish. I don't want maintaining and updating this ridiculous monstrosity of a website to take any actual effort. So, while writing the site's generator/server for all the different versions was/is a pain, the actual content is stored in one place with basic markup, with edits instantly reloaded locally and easily pushed to production. How's that for Developer eXperience?</description>
+        </item>
+    </criteria>
+    <section>
+        <title>Content</title>
+        <g>
+            <p>Given all the different formats I'm serving this content in, it was important from the beginning to have some sort of greatest-common-denominator structure containing not just the all content, but also some semantic information for presenting it well. Defining this structure allows me to know exactly what can be represented when writing content, as well as what a new presentation format must be able to represent.</p>
+            <p>Take, for instance, this page. So far, you've encountered three sections: the Overview, Main Features, and now the Content. While all three are sections containing mostly text, the "Main Features" section serves a completly different purpose, being a list of broad goals with short descriptions rather than some general content with a header. Creating a new type of section for this in the content structure allows all formats to present such lists effectively, without having to customize each page for each presentation format.</p>
+            <p>While something like <a href="https://www.markdownguide.org/getting-started/">Markdown</a> is the typical choice for static-site generators, making writing typical posts a breeze, it just wouldn't do for this use case. I needed room for encoding custom structure along with my content. So I next turned to <a trail="" href="https://yaml.org/">YAML</a>, a "human-friendly data serialization language" that could surely encode the structure I wanted. However, trying to write content in YAML just didn't feel right (despite their website's success in doing so). So, I finally settled on everyone's favorite data format...</p>
+            <p>XML. I don't think I've met anyone who claims to like or promote XML's usage, and I don't know of any modern project that's chosen to use it with no external pressure, but I really like it for this use case. Its separate tag names, attributes, and tag contents map nicely to types of content, extra non-displayed information, and actual on-screen content. Take the humble link; XML can represent it with a simple &lt;a&gt; tag, with href attribute for the destination and (in theory) any textual content you want between the tags. Sure, you can do the same in JSON, but you don't get that clear delineation between the destination and the visual content, it's all just attributes.</p>
+            <img src="xml_content_ex.png" alt="Screenshot of the XML for the above section. Includes a <title> and three <items>, each of which have a <title> and <description>.">
+                <caption>The XML describing the Main Features section above. Isn't it beautiful? (At this time, I have yet to add code blocks, so we'll all have to make do with screenshots.)</caption>
+            </img>
+            <p>So, with all my XML files for projects, posts, and other pages stored in a content directory, I serialize it into one big content struct with using <a href="https://serde.rs">serde</a> and <a href="https://docs.rs/quick-xml/latest/quick_xml/">quick_xml</a> (along with some basic directory walking, I'm not (yet) crazy enough to put everyone in one XML file). Then, each format implementation gets a reference to the content struct on rebuild, from which it creates and serves its presentation.</p>
+        </g>
+    </section>
+    <section>
+        <title>Live Reloading</title>
+        <p>TODO</p>
+    </section>
+</content>
+<thumbnail>sitescreenshot.jpg</thumbnail>
+<priority>-15</priority>
+</project>
