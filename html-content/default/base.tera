@@ -13,7 +13,7 @@
       "@context" : "https://schema.org",
       "@type" : "WebSite",
       "name" : "Fletch Rydell",
-      "url" : "https://fletchrydell.com/"
+      "url" : "https://fletchrydell.com/",
       "author": "Fletch Rydell",
       "description": "Fletch Rydell's personal website.",
     }
