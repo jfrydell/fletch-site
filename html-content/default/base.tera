@@ -14,7 +14,10 @@
       "@type" : "WebSite",
       "name" : "Fletch Rydell",
       "url" : "https://fletchrydell.com/",
-      "author": "Fletch Rydell",
+      "author": {
+        "@type": "Person",
+        "name": "Fletch Rydell",
+      },
       "description": "Fletch Rydell's personal website.",
     }
   </script>
