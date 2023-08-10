@@ -3,7 +3,7 @@
 <name>This Website</name>
 <url>website</url>
 <description>The website you're currently on! Powered by my own static site generator and server.</description>
-<date>2022.12-2023.05</date>
+<date>2023.05-2023.08</date>
 <skills>
     <skill>Rust Development</skill>
     <skill>Web Design</skill>
@@ -36,20 +36,55 @@
         <title>Content</title>
         <g>
             <p>Given all the different formats I'm serving this content in, it was important from the beginning to have some sort of greatest-common-denominator structure containing not just the all content, but also some semantic information for presenting it well. Defining this structure allows me to know exactly what can be represented when writing content, as well as what a new presentation format must be able to represent.</p>
-            <p>Take, for instance, this page. So far, you've encountered three sections: the Overview, Main Features, and now the Content. While all three are sections containing mostly text, the "Main Features" section serves a completly different purpose, being a list of broad goals with short descriptions rather than some general content with a header. Creating a new type of section for this in the content structure allows all formats to present such lists effectively, without having to customize each page for each presentation format.</p>
+            <p>Take, for instance, this page. So far, you've encountered three sections: the Overview, Main Features, and now the Content. While all three are sections containing mostly text, the "Main Features" section serves a completly different purpose, being a list of broad goals with short descriptions rather than some general content with a header. Creating a new type of section for this in the content structure allows all formats to present such lists effectively, without having to customize each page for each presentation format. Not only that, but elements like the title and subtitle also need to go somewhere, and defining a content structure upfront forces me to clearly define what's allowed and not (for example, a subtitle contains hypertext, including links, while titles are plain text).</p>
             <p>While something like <a href="https://www.markdownguide.org/getting-started/">Markdown</a> is the typical choice for static-site generators, making writing typical posts a breeze, it just wouldn't do for this use case. I needed room for encoding custom structure along with my content. So I next turned to <a trail="" href="https://yaml.org/">YAML</a>, a "human-friendly data serialization language" that could surely encode the structure I wanted. However, trying to write content in YAML just didn't feel right (despite their website's success in doing so). So, I finally settled on everyone's favorite data format...</p>
             <p>XML. I don't think I've met anyone who claims to like or promote XML's usage, and I don't know of any modern project that's chosen to use it with no external pressure, but I really like it for this use case. Its separate tag names, attributes, and tag contents map nicely to types of content, extra non-displayed information, and actual on-screen content. Take the humble link; XML can represent it with a simple &lt;a&gt; tag, with href attribute for the destination and (in theory) any textual content you want between the tags. Sure, you can do the same in JSON, but you don't get that clear delineation between the destination and the visual content, it's all just attributes.</p>
             <img src="xml_content_ex.png" alt="Screenshot of the XML for the above section. Includes a <title> and three <items>, each of which have a <title> and <description>.">
-                <caption>The XML describing the Main Features section above. Isn't it beautiful? (At this time, I have yet to add code blocks, so we'll all have to make do with screenshots.)</caption>
+                <caption>The XML describing the Main Features section above. Beautiful, isn't it? (At this time, I have yet to add code blocks, so we'll all have to make do with screenshots.)</caption>
             </img>
-            <p>So, with all my XML files for projects, posts, and other pages stored in a content directory, I serialize it into one big content struct with using <a href="https://serde.rs">serde</a> and <a href="https://docs.rs/quick-xml/latest/quick_xml/">quick_xml</a> (along with some basic directory walking, I'm not (yet) crazy enough to put everyone in one XML file). Then, each format implementation gets a reference to the content struct on rebuild, from which it creates and serves its presentation.</p>
+            <p>So, with all my XML files for projects, posts, and other pages stored in a content directory, I serialize it into one big content struct with using <a href="https://serde.rs">serde</a> and <a href="https://docs.rs/quick-xml/latest/quick_xml/">quick_xml</a> (along with some basic directory walking, I'm not (yet) crazy enough to put everyone in one XML file). Then, each format implementation (aka presenter) gets a reference to the content struct on rebuild, from which it creates and serves its presentation.</p>
         </g>
     </section>
     <section>
         <title>Live-Reloading</title>
-        <p>With </p>
+        <g>
+            <p>With the content all deserialized from XML into a nice machine-readable struct for passing into various presenters, the problem now becomes keeping it up to date with changes. Initially, I just loaded the content once on startup, and used <a href="https://github.com/watchexec/cargo-watch">cargo watch</a> for updates on edits. Obviously, given Rust's famously-slow <a href="https://perf.rust-lang.org/dashboard.html" trail="">compile times</a>, this just wouldn't do for actually writing content.</p>
+            <p>So, I switched to a decent (if unidiomatic) solution of having a global static RwLock&lt;Content&gt; variable that could be updated on any change, at which point a <a href="https://docs.rs/tokio/latest/tokio/sync/broadcast/index.html">message-passing channel</a> informs all running presenters that they should reload their content from the global content struct.</p>
+            <p>However, for most forms of content, there is another form of reload that needs to happen when format-specific content (such as HTML templates) changes. For presenters like SSH, these behave the exact same way (just update state for new connections), but for others (HTML), they are handled separately. In HTML's case, updates on content changes take only about 80ms locally (and only 5ms compiled in release mode), while updates to templates take 200ms (and 10 whole milliseconds in release). Obviously, this falls completely in the realm of premature optimization, but why rebuild templates unnecessarily? (Also I was bored on a 5-hour flight).</p>
+            <p>Of course, even if content reloads instantly server-side, refreshing the page on every tiny adjustment to template styling gets annoying really quickly. So, I added a feature to inject a small auto-refresh script into every HTML page when enabled. While polling for content updates is probably the best way to implement this (simple to implement, works through server restarts), I decided to use <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API">WebSockets</a> because I'd never used them before. So, after content changes, a message is sent to all active websocket connections telling clients to reload, making new changes instantly visible and enabling easier <a href="https://en.wiktionary.org/wiki/bikeshedding">bikeshedding</a> background colors to procrastinate actual work.</p>
+        </g>
+    </section>
+    <section>
+        <title>HTML Presenter</title>
+        <g>
+            <p>The HTML version of this site was the first presenter I created, and currently includes 3 <a href="/themes" trail="">Themes</a>: Default, Simple, and Pure. Each of these is really its own sub-presenter, but they're grouped under one object that handles serving the correct theme to users.</p>
+            <p>In terms of presentation, the pages for each theme are currently rendered using the <a href="https://tera.netlify.app/">Tera</a> templating engine. For the Default theme, CSS is automatically generated using <a href="https://github.com/pintariching/railwind" trail="">railwind</a>, a <a href="https://tailwindcss.com/">Tailwind CSS</a> clone written in Rust for easy integration into the site generator. For the Simple theme, the CSS is stored alongside the templates for easy editing, and the Pure theme has no CSS to worry about at all!</p>
+            <p>The main component of the HTML presenter functionality-wise is allowing the user to switch their site theme. I initially planned on hosting each theme's content at a different path, making this a true static site, but ultimately decided to use a cookie to store the user's preferred theme and serve the correct site based on that. In the hypothetical event that someone links to this page and the person who clicks the link has visited before, this has the advantage of saving their desired theme.</p>
+            <p>To change themes, a query string parameter called "version" can be passed into any page, which will update your local cookie and serve the requested theme (or the default, if none exists). This is most easily done on the <a href="/themes">Change Theme</a> page, which provides links for easy switching.</p>
+        </g>
+    </section>
+    <section>
+        <title>SSH Presenter</title>
+        <g>
+            <p>The SSH presenter was the second one I worked on, but was the idea that inspired me to make the site to begin with, motivating the extensible design that allowed for the multi-theme HTML presenter I built first. It works using a custom server built with the <a href="https://github.com/warp-tech/russh">russh</a> library, which implements the tricky parts of SSH such as authentication, key exchange, and encryption. The server (for now) just handles simple session with one channel, with the majority of my effort going into handling incoming data rather than in intricacies of the SSH protocol.</p>
+            <p>Content for the SSH presenter is stored in the form of a virtual filesystem that the user can navigate. When content is rebuilt, a directory is created for projects and a .txt Markdown-like file is created for each page. The user can then explore this filesystem through a shell-like interface.</p>
+            <p>When a client connects, the server creates a new SshSession struct containing a reference to the SshContent (the virtual filesystem), a shell struct (handling <a href="https://en.wikipedia.org/wiki/Line_discipline">line discipline</a> and other shell stuff), some info about the user (username and terminal size), and potentially a currently-running app (such as vim).</p>
+            <p>If there is no currently-running app, incoming data (keystrokes) are sent to the shell struct, which echos back must characters and handles control characters like backspace appropriately. It also stores the user's history to allow for moving up and down through past commands. If the user runs a command by pressing enter, the shell returns the command text for the session to handle. For most commands, like ls, cd, and cat, the session can handle them immediately, appending their output to the data to send back to the user.</p>
+            <p>However, other commands, such as <a href="https://www.vim.org/">vim</a> (currently only vim, I'm open to other suggestions), can't just output their data and be done. These are full-fledged "apps" that must be stored in a session while running to have incoming data routed to them instead of the shell. In vim's case, this data is used to support basic cursor movement and correctly-scrolled rendering of the document (a couple hundred lines of surprisingly-tricky code despite its simplicity). Once the app is closed, the running app member of the SshSession struct signals that it is done, and control returns to the shell.</p>
+            <p>Overall, the SSH presenter seems to work pretty well, despite all the complexity I ignored when implementing it in favor of actually finishing it. The main downside of it so far is the ridiculous number of SSH bots roaming the internet, logging in every few seconds to attempt an exploit using features my server is nowhere near supporting. But the timeouts deal with them pretty well, and I can only hope I've ruined a few people's days who think they've successfully broken into something only to see my welcome message and virtual filesystem waiting for them. Maybe I make this work to my benefit somehow — if you're looking to promote a better SSH brute-forcing bot, get in touch for some highly-targetted advertising!</p>
+        </g>
+    </section>
+    <section>
+        <title>Upcoming Features / Short-Term To-Do List</title>
+        <g>
+            <p>Add a list element to the system so I can properly render this list</p>
+            <p>Add a quick-switch theme to the HTML presenter to allow easier switching between themes while on a page (mostly for previewing my own changes)</p>
+            <p>Support the <a href="https://en.wikipedia.org/wiki/Gopher_(protocol)">Gopher protocol</a> with a new presenter</p>
+            <p>Update the SSH vim app to be harder to quit (add <a href="https://vimdoc.sourceforge.net/htmldoc/cmdline.html#Command-line">command-line</a> editing)</p>
+            <p>Add basic tab-completion to the SSH presenter's shell</p>
+        </g>
     </section>
 </content>
 <thumbnail>sitescreenshot.jpg</thumbnail>
-<priority>-15</priority>
+<priority>15</priority>
 </project>

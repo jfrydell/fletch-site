@@ -72,12 +72,12 @@
 
 {# Renderes a `Text` struct, containing a `$value` array of `TextElement`s (text and links). #}
 {% macro render_text(text) %}
-{% for element in text["$value"] %}
-{% if element["$text"] %}
+{%- for element in text["$value"] -%}
+{%- if element["$text"] -%}
 {{ element["$text"] }}
-{% elif element["a"] %}
-<a class="text-sky-600 hover:text-sky-700 visited:text-purple-700" href="{{ element.a['@href'] }}">{{
-  self::render_text(text = element["a"]) }}</a>
-{% endif %}
-{% endfor %}
+{%- elif element["a"] -%}
+{{ element.a['@lead'] }}<a class="text-sky-600 hover:text-sky-700 visited:text-purple-700" href="{{ element.a['@href'] }}">{{
+  self::render_text(text = element["a"]) }}</a>{{ element.a['@trail'] }}
+{%- endif -%}
+{%- endfor -%}
 {% endmacro %}

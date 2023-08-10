@@ -23,7 +23,7 @@
 
 {% macro make_section(section, reverse=false) %}
 {% set elements = section["$value"] %}
-<section class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed ">
+<section class="my-8 mx-auto px-6 md:px-12 max-w-screen-lg grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed ">
   {% for element in elements %}
   <div class="{% if loop.first and reverse %}order-1{% endif %}">
     {% if loop.first %}
@@ -76,7 +76,7 @@
 {%- endmacro -%}
 
 {# Renderes a `Text` struct, containing a `$value` array of `TextElement`s (text and links). #}
-{% macro render_text(text, link_style="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500") %}
+{% macro render_text(text, link_style="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400") %}
 {%- for element in text["$value"] -%}
 {%- if element["$text"] -%}
 {{ element["$text"] }}

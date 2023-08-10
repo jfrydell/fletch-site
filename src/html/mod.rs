@@ -94,6 +94,7 @@ impl HtmlServer {
                     continue;
                 }
             };
+            debug!("Reloading HTML content...");
             match self.refresh_content(&crate::CONTENT.read().unwrap()).await {
                 Ok(_) => info!("Reloaded HTML content"),
                 Err(e) => error!("Failed to reload HTML content: {e}"),
