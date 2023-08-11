@@ -87,7 +87,7 @@
     <section>
         <title>Final Thoughts</title>
         <g>
-            <p>This felt like my first "real" engineering project, with a real client and team who were relying on me getting things done. While there is so much I would do differently if I could go back, overall it was a success, and I learned so much throughout the process. Here's some other pictures from the project:</p>
+            <p>This felt like my first "real" engineering project, with an actual client and team who were relying on me getting things done. While there is so much I would do differently if I could go back, overall it was a success, and I learned so much throughout the process. Here's some other pictures from the project:</p>
             <gallery>
                 <img src="garm/pcb_soldered.jpg" alt="A small PCB with an ESP32 microcontroller and H-Bridge motor driver attached, along with several jumpers connecting the H-Bridge to the PCB.">
                     <caption>The assembled PCB, with jumper cables attaching the screw terminals on the H-Bridge to the board. The 6-pin headers on top and bottom plug into the motors.</caption>
@@ -95,7 +95,7 @@
                 <img src="garm/deliverable.jpg" alt="The complete device leaned against a table, cropped to the electronics on the mounting plate in a closed waterproof box.">
                     <caption>The main testing device all ready for delivery.</caption>
                 </img>
-                <img src="garm/boatrail.jpeg" alt="">
+                <img src="garm/boatrail.jpeg" alt="At a lake, on a docked boat, the testing device sits attached to metal rails running along the side of the boat.">
                     <caption>The secondary (non-rotating) device mounted to the boat's railing for testing.</caption>
                 </img>
                 <img src="garm/done_electronics.jpg" alt="A small waterproof box attached to the metal mounting plate, containing a PCB, microcontroller, motor driver, and several wires connecting everything.">
