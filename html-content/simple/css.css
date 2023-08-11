@@ -125,3 +125,16 @@ img {
 .bigitem-list>li>* {
     margin: 0.1em;
 }
+
+.gallery {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-around;
+}
+
+.gallery>* {
+    max-width: 720px;
+    flex-basis: 360px;
+    flex-grow: 1;
+}

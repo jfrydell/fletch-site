@@ -16,10 +16,10 @@
         <title>Overview</title>
         <g>
             <p>Garmin's Sonar Engineering Team creates several dive watches and air tank sensors designed to communicate with each other using their SubWave Sonar technology while underwater. Until recently, to test and calibrate these precise devices, Garmin attached them to a boat using 12 ft PVC poles, leading to several feet of deflection during testing and decreasing both accuracy and repeatability of results.</p>
-            <p>To make the testing and calibration process more stable, accurate, and consistent, I worked with a team of engineers in my EGR 102 class to design and build a new mounting system that would hold the dive watches and air tank sensors fixed in position underwater, while being controllable using a web app to set the exact depth and angular position of the devices being tested.</p>
+            <p>To make the testing and calibration process more stable, accurate, and consistent, I worked with a team of engineers in my <a href="https://fyd.duke.edu/">EGR 102</a> class to design and build a new mounting system that would hold the dive watches and air tank sensors fixed in position underwater, while being controllable using a web app to set the exact depth and angular position of the devices being tested.</p>
             <p>As electrical team lead, I personally designed the mechatronic control system, from the motors used to physically move the testing rig to the UX of the web app used by engineers while performing tests, as well as all the microcontrollers and firmware in between.</p>
         </g>
-        <img src="garm_installed.jpeg" alt="A long pole-shaped device, made of aluminum and fiberglass rebar, mounted to the side of a boat.">
+        <img src="garm/installed.jpeg" alt="A long pole-shaped device, made of aluminum and fiberglass rebar, mounted to the side of a boat.">
             <caption>The new testing system installed on the boat.</caption>
         </img>
     </section>
@@ -41,11 +41,12 @@
     <section>
         <title>Physical Design</title>
         <g>
-            <p>While I <a href="https://www.grantweerts.com/garmin">can't take too much credit</a> for the design or manufacturing of the testing rig's mechanical structure, making it move required designing the best possible depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
+            <p>While I <a href="https://www.grantweerts.com/garmin">can't take too much credit</a> for the design or manufacturing of the testing rig's mechanical structure, making it move required designing a robust depth and rotation control system, as well as selecting motors that had the necessary power and precision.</p>
             <p>For the depth adjustment, we used a winch-like system with a motorized spool lifting the tested device up and down on a telescoping pole, while rotation was achieved by rotating the entire testing rig using a motorized belt. This was done to avoid placing any electronics underwater while maintaining full control over the device's position.</p>
             <p>For motors, we eventually chose small, high-gear-ratio DC motors <a href="https://www.dfrobot.com/product-633.html">(this one, in particular)</a> with quadrature encoders to provide the necessary torque while remaining power-efficient, small, and inexpensive.</p>
+            <p>To drive these motors, we used the <a href="https://www.amazon.com/Qunqi-Controller-Module-Stepper-Arduino/dp/B014KMHSW6">L298N</a> H-Bridge motor driver, mostly because it was most conveniently available. This ended up being a significant mistake, with the L298N frequently <a href="https://www.reddit.com/r/arduino/comments/r40pej/l298_overheating/">overheating</a> and causing problems; if you are working on a similar project, I'd highly recommend researching a better driver.</p>
         </g>
-        <img src="garm_depthmotor.jpg" alt="A small motor driving an alumninum spool with coated steel wire wrapped around it. The motor and spool are mounted to a mounting plate, and the wire continues downward through the testing device.">
+        <img src="garm/depthmotor.jpg" alt="A small motor driving an alumninum spool with coated steel wire wrapped around it. The motor and spool are mounted to a mounting plate, and the wire continues downward through the testing device.">
             <caption>The depth control mechanism, including the winch system used to adjust depth and the DC motor with encoder powering it.</caption>
         </img>
     </section>
@@ -61,7 +62,7 @@
         <g>
             <p>The ideal testing workflow we were focused on providing involved controlling all testing via a laptop in an intuitive, hassle-free way. We achieved this with a fairly basic web app, served by the ESP32 that also controlled the motors themselves.</p>
             <p>The primary testing rig's controller acted as an access point, providing a WiFi network that a laptop could connect to. It then served both the web app (created using <a href="https://picocss.com/">PicoCSS,</a> which I highly recommend) as well as a fairly basic API allowing for the depth and angle to be set, as well as the current position to be read. This makes the system very extensible, with any new systems able to integrate easily into the current API.</p>
-            <p>Because both testing rigs needed to be controlled simultaneously, the secondary one acted in station mode, connecting to the predefined WiFi network created by the primary AP rig. The station mode rig polled the primary rig periodically for updated depth position targets, matching its own position upon observing any changes.</p>
+            <p>Because two testing rigs needed to be controlled simultaneously when testing communication between two devices, the secondary one acted in station mode, connecting to the predefined WiFi network created by the primary AP rig. The station mode rig polled the primary rig periodically for updated depth position targets, matching its own position upon observing any changes.</p>
         </g>
     </section>
     <section>
@@ -72,16 +73,44 @@
             <p>During testing, both calibration systems exceeded requirements, with depth calibration varying less than 0.5" and rotation by less than 2°.</p>
         </g>
     </section>
-    <!--
-    TODO:
-    - PID Loop
-    - Hardware? (ESP, H-Bridge, PCB) Probably included elsewhere, but could be good to add H-Bridge discussion
-    - ESP32 Web Server, API
-    - Web App (PicoCSS)
-    - "Approaching Absolute Zero (Calibration)"
-    - PCB Design
-    -->
+    <section>
+        <title>Productionizing</title>
+        <g>
+            <p>After a few months of brainstorming, design, implementation, and testing, the end-of-semester deadline was approaching faster than expected. While we were now confident in our design, nearly every part of it was not ready for production use, from the 3D-printed PLA spool holding up the device to the mess of jumper wires connecting everything.</p>
+            <p>While the rest of the team <a href="https://www.grantweerts.com/garmin#h.s97odivruiih">spent hours</a> machining the final product, I worked on my first-ever PCB design to fit the electronics into the waterproof casing on the device. Using the <a href="https://www.autodesk.com/products/fusion-360/blog/future-of-autodesk-eagle-fusion-360-electronics/">soon-to-be cancelled</a> Autodesk EAGLE software, I layed out the board, including making a basic custom package for the H-Bridge mounting holes.</p>
+            <p>After one failed iteration (due to downloading the wrong ESP32 module and later having to patch it) and some simple soldering, we had our working PCB. Once we wired a power cable for interfacing with the boat's onboard 12V supply, the electronics — along with the rest of the device — could be installed on the boat and used for future Garmin testing.</p>
+        </g>
+        <img src="garm/pcb.jpg" alt="A small PCB with through-holes for a microcontroller, several pin headers, and some resistors, as well as four mounting holes for the motor driver.">
+            <caption>The final PCB design, made incredibly simple by the (admittedly poor) choice of motor driver, which had to be connected using jumper cables.</caption>
+        </img>
+    </section>
+    <section>
+        <title>Final Thoughts</title>
+        <g>
+            <p>This felt like my first "real" engineering project, with a real client and team who were relying on me getting things done. While there is so much I would do differently if I could go back, overall it was a success, and I learned so much throughout the process. Here's some other pictures from the project:</p>
+            <gallery>
+                <img src="garm/pcb_soldered.jpg" alt="A small PCB with an ESP32 microcontroller and H-Bridge motor driver attached, along with several jumpers connecting the H-Bridge to the PCB.">
+                    <caption>The assembled PCB, with jumper cables attaching the screw terminals on the H-Bridge to the board. The 6-pin headers on top and bottom plug into the motors.</caption>
+                </img>
+                <img src="garm/deliverable.jpg" alt="The complete device leaned against a table, cropped to the electronics on the mounting plate in a closed waterproof box.">
+                    <caption>The main testing device all ready for delivery.</caption>
+                </img>
+                <img src="garm/boatrail.jpeg" alt="">
+                    <caption>The secondary (non-rotating) device mounted to the boat's railing for testing.</caption>
+                </img>
+                <img src="garm/done_electronics.jpg" alt="A small waterproof box attached to the metal mounting plate, containing a PCB, microcontroller, motor driver, and several wires connecting everything.">
+                    <caption>The complete electronic system for the primary testing rig, all installed on the PCB and stuffed into the waterproof casing.</caption>
+                </img>
+                <img src="garm/mess.jpg" alt="A large number of long wires connecting an H-Bridge motor driver, an ESP32 attached to a protoboard, and an early 3D-printed prototype of the rotation and depth adjustment mechanisms.">
+                    <caption>The complete mess of wires I was working with for the first 85% of the project. What was I thinking?</caption>
+                </img>
+                <img src="garm/meholding.jpg" alt="Me holding the long fiberglass rebar of testing device in an incomplete state, currently unfolding it to test the hinge.">
+                    <caption>The best picture I could find of me with the testing rig, taken pretty early into the design process while working on the folding mechanism.</caption>
+                </img>
+            </gallery>
+        </g>
+    </section>
 </content>
-<thumbnail>garm_boat.jpg</thumbnail>
+<thumbnail>garm/boat.jpg</thumbnail>
 <priority>20</priority>
 </project>

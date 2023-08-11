@@ -36,7 +36,7 @@
 {# Renders an `Element` enum as part of a section #}
 {% macro make_element(element) %}
 {% if element.g %}
-<div class="space-y-2">
+<div>
   {% for subelement in element.g["$value"] %}
   {{ self::make_element(element = subelement) }}
   {% endfor %}
@@ -50,6 +50,12 @@
   <figcaption>{{ self::render_text(text = element.img.caption) }}</figcaption>
   {% endif %}
 </figure>
+{% elif element.gallery %}
+<div class="gallery">
+  {% for subelement in element.gallery["$value"] %}
+  {{ self::make_element(element = subelement) }}
+  {% endfor %}
+</div>
 {% endif %}
 {% endmacro %}
 
@@ -61,8 +67,8 @@
   <ul class="bigitem-list">
     {% for item in items %}
     <li>
-      <h3 class="text-2xl text-center">{{item.title}}</h3>
-      <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
+      <h3>{{item.title}}</h3>
+      <p>{{ self::render_text(text = item.description) }}</p>
     </li>
     {%- endfor -%}
   </ul>
@@ -76,7 +82,7 @@
 {%- if element["$text"] -%}
 {{ element["$text"] }}
 {%- elif element["a"] -%}
-{{ element.a['@lead'] }}<a class="text-sky-600 hover:text-sky-700 visited:text-purple-700" href="{{ element.a['@href'] }}">{{
+{{ element.a['@lead'] }}<a href="{{ element.a['@href'] }}">{{
   self::render_text(text = element["a"]) }}</a>{{ element.a['@trail'] }}
 {%- endif -%}
 {%- endfor -%}

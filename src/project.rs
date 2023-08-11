@@ -125,11 +125,18 @@ pub struct Skills {
     pub skills: Vec<String>,
 }
 
-/// A single element of content, either a `Group` of elements or a `Paragraph` of text.
+/// A single element of content, such as a `Group` of other elements or a `Paragraph` of text.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Element {
+    /// A generic group of sequential elements.
     #[serde(rename = "g")]
     Group {
+        #[serde(rename = "$value")]
+        content: Vec<Element>,
+    },
+    /// A gallery of many equal-weight elements.
+    #[serde(rename = "gallery")]
+    Gallery {
         #[serde(rename = "$value")]
         content: Vec<Element>,
     },
@@ -155,6 +162,11 @@ impl Display for Element {
                     }
                     write!(f, "{}", element)?;
                     newline = true;
+                }
+            }
+            Element::Gallery { content } => {
+                for element in content.iter() {
+                    write!(f, "{}", element)?;
                 }
             }
             Element::Paragraph(text) => writeln!(f, "{}", text)?,
