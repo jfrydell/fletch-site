@@ -639,6 +639,7 @@ dependencies = [
  "color-eyre",
  "ed25519-dalek",
  "futures",
+ "gophermap",
  "hyper",
  "notify",
  "once_cell",
@@ -839,6 +840,12 @@ dependencies = [
  "ignore",
  "walkdir",
 ]
+
+[[package]]
+name = "gophermap"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ec2186bfad5a5dcbc9307dbc2d2444062300a836ae91b00dd80c3b71c34af3b"
 
 [[package]]
 name = "h2"

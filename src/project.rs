@@ -49,7 +49,7 @@ impl Display for Project {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Content {
     #[serde(rename = "$value", default)]
-    sections: Vec<Section>,
+    pub sections: Vec<Section>,
 }
 impl Display for Content {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -185,7 +185,7 @@ impl Display for Element {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Text {
     #[serde(rename = "$value", default)]
-    text: Vec<TextElement>,
+    pub text: Vec<TextElement>,
 }
 impl Display for Text {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

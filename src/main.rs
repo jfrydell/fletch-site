@@ -7,6 +7,7 @@ use serde::Serialize;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, log::warn};
 
+mod gopher;
 mod html;
 mod project;
 mod ssh;
@@ -30,6 +31,8 @@ pub struct Config {
     pub ssh_timeout: Duration,
     /// The first data timeout for ssh connections; new connections will be closed if no data is received within this time (given in seconds).
     pub ssh_first_timeout: Duration,
+    /// The Gopher port to listen on.
+    pub gopher_port: u16,
     /// Whether to watch for changes to the content directory (as well as any HTML templates) to update content.
     ///
     /// Currently affects all filesystem watching, but may be split into separate flags in the future.
@@ -66,6 +69,7 @@ impl Config {
                 "SSH_FIRST_TIMEOUT",
                 30,
             )?),
+            gopher_port: Self::parse_var("GOPHER_PORT")?,
             watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
             live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
             show_hidden: Self::parse_var_default("SHOW_HIDDEN", false)?,
@@ -109,6 +113,7 @@ impl Config {
             ssh_port,
             ssh_timeout,
             ssh_first_timeout,
+            gopher_port,
             watch_content,
             live_reload,
             show_hidden,
@@ -122,6 +127,7 @@ impl Config {
         debug!("  SSH_PORT: {}", ssh_port);
         debug!("  SSH_TIMEOUT: {}", ssh_timeout.as_secs());
         debug!("  SSH_FIRST_TIMEOUT: {}", ssh_first_timeout.as_secs());
+        debug!("  GOPHER_PORT: {}", gopher_port);
         debug!("  WATCH_CONTENT: {}", watch_content);
         debug!("  LIVE_RELOAD: {}", live_reload);
         debug!("  SHOW_HIDDEN: {}", show_hidden);
@@ -129,11 +135,11 @@ impl Config {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct Content {
-    projects: Vec<project::Project>,
-    index_info: serde_json::Value,
-    themes_info: serde_json::Value,
+    pub projects: Vec<project::Project>,
+    pub index_info: serde_json::Value,
+    pub themes_info: serde_json::Value,
 }
 impl Content {
     /// Loads all content from the `content/` directory.
@@ -205,7 +211,8 @@ async fn main() -> Result<Infallible> {
     // Run all services
     tokio::select!(
         e = html::main(rx.resubscribe()) => e,
-        e = ssh::main(rx) => e,
+        e = ssh::main(rx.resubscribe()) => e,
+        e = gopher::main(rx) => e,
         e = watch_content(tx) => e,
     )
 }
