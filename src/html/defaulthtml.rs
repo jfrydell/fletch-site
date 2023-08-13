@@ -91,12 +91,12 @@ impl Content {
     }
 
     /// Get a page.
-    pub fn get_page(&self, page: super::Page) -> Option<String> {
+    pub fn get_page(&self, page: &super::Page) -> Option<String> {
         use super::Page::*;
         match page {
             Index => Some(self.index.clone()),
             Themes => Some(self.themes.clone()),
-            Project(name) => self.projects.get(&name).cloned(),
+            Project(name) => self.projects.get(name).cloned(),
             _ => None,
         }
     }

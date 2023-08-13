@@ -64,12 +64,12 @@ impl Content {
     }
 
     /// Get a page, optionally with "pure" mode (no CSS).
-    pub fn get_page(&self, page: super::Page, pure: bool) -> Option<String> {
+    pub fn get_page(&self, page: &super::Page, pure: bool) -> Option<String> {
         use super::Page::*;
         match page {
             Index => Some(self.index.clone()),
             Themes => Some(self.themes.clone()),
-            Project(name) => self.projects.get(&name).cloned(),
+            Project(name) => self.projects.get(name).cloned(),
             _ => None,
         }
         .map(|page| {

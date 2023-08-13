@@ -3,7 +3,7 @@ use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 use async_trait::async_trait;
 use axum::{
     extract::{ws, FromRequestParts, Path, Query, State},
-    response::{Html, IntoResponse},
+    response::{AppendHeaders, Html, IntoResponse},
     routing::get,
     Router,
 };
@@ -169,10 +169,10 @@ impl HtmlServer {
         // Get the page's content from the desired version
         let content = self.content.read().await;
         let response_body = match version {
-            Some(HtmlVersion::DefaultHtml) => content.default.get_page(page),
-            Some(HtmlVersion::SimpleHtml) => content.simple.get_page(page, false),
-            Some(HtmlVersion::PureHtml) => content.simple.get_page(page, true),
-            None => content.default.get_page(page),
+            Some(HtmlVersion::DefaultHtml) => content.default.get_page(&page),
+            Some(HtmlVersion::SimpleHtml) => content.simple.get_page(&page, false),
+            Some(HtmlVersion::PureHtml) => content.simple.get_page(&page, true),
+            None => content.default.get_page(&page),
         };
 
         // Serve page if possible, otherwise 404
@@ -189,7 +189,15 @@ impl HtmlServer {
                     </head>"#,
                     );
                 }
-                (cookies, Html(response_body)).into_response()
+                (
+                    cookies,
+                    AppendHeaders([(
+                        hyper::header::LINK,
+                        format!("<{}>; rel=\"canonical\"", get_canonical_url(&page)),
+                    )]),
+                    Html(response_body),
+                )
+                    .into_response()
             }
             None => axum::http::StatusCode::NOT_FOUND.into_response(),
         }
@@ -409,4 +417,13 @@ pub enum Page {
     Themes,
     Project(String),
     BlogPost(String),
+}
+
+fn get_canonical_url(page: &Page) -> String {
+    match page {
+        Page::Index => format!("https://{}/", crate::CONFIG.domain),
+        Page::Themes => format!("https://{}/themes", crate::CONFIG.domain),
+        Page::Project(project) => format!("https://{}/projects/{}", crate::CONFIG.domain, project),
+        Page::BlogPost(post) => format!("https://{}/blog/{}", crate::CONFIG.domain, post),
+    }
 }
