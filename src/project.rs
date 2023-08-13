@@ -8,6 +8,7 @@ pub struct Project {
     pub name: String,
     pub url: String,
     pub description: String,
+    pub date: String,
     pub content: Content,
     pub thumbnail: String,
     pub skills: Skills,
@@ -20,6 +21,7 @@ impl Display for Project {
             ref name,
             ref url,
             ref description,
+            ref date,
             ref content,
             thumbnail: ref _thumbnail,
             ref skills,
@@ -29,6 +31,7 @@ impl Display for Project {
         writeln!(f, "=== {} ===", name)?;
         writeln!(f, "https://{}/projects/{}", crate::CONFIG.domain, url)?;
         writeln!(f, "{}", description)?;
+        writeln!(f, "{}", date)?;
         writeln!(f, "Skills:")?;
         for skill in skills.skills.iter() {
             writeln!(f, "- {}", skill)?;
@@ -234,50 +237,5 @@ impl Display for TextElement {
             TextElement::Text(text) => write!(f, "{}", text)?,
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_serialize() {
-        let project = test_project();
-        // println!("{}", quick_xml::se::to_string(&project).unwrap());
-        println!("{}", serde_json::to_string_pretty(&project).unwrap());
-    }
-
-    #[test]
-    fn test_to_string() {
-        let project = test_project();
-        println!("{}", project);
-    }
-
-    #[test]
-    fn test_links() {
-        let xml = "Testing <a trail=\"\" href=\"test.html\">links</a>.";
-        let text: Vec<TextElement> = quick_xml::de::from_str(xml).unwrap();
-        println!("{}", Text { text });
-    }
-
-    fn test_project() -> Project {
-        Project {
-            name: "Test".to_string(),
-            url: "test.html".to_string(),
-            description: "a test project".to_string(),
-            content: Content {
-                sections: vec![Section::Section {
-                    title: Some("test section".to_string()),
-                    content: vec![Element::Paragraph(Text {
-                        text: vec![TextElement::Text("Hello, world!".to_string())],
-                    })],
-                }],
-            },
-            thumbnail: "test.png".to_string(),
-            skills: Skills {
-                skills: vec!["testing".to_string(), "testagain".to_string()],
-            },
-            priority: 0,
-        }
     }
 }

@@ -52,7 +52,7 @@ RRRR   RRRRR             YYYY          DDDD       DDDD     EEEE               LL
 RRRR     RRRRR           YYYY          DDDDDDDDDDDDDD      EEEEEEEEEEEEEE     LLLLLLLLLLLLLL     LLLLLLLLLLLLLLL
 RRRR      RRRRR          YYYY          DDDDDDDDDDDD        EEEEEEEEEEEEEE     LLLLLLLLLLLLLL     LLLLLLLLLLLLLLL
 
-Hello there! My name is Fletch Rydell (see above), and I'd like to welcome you to my site.
+Hello there! My name is Fletch Rydell (see above as long as your terminal width >= 112), and I'd like to welcome you to my site.
 Not too many people use Gopher these days, so I'm glad you're here.
 
 This site is a mirror of my HTTP-based and SSH-based sites, and should contain all the same content, just in the superior Gopher format.
@@ -96,18 +96,27 @@ impl GopherContent for crate::project::Project {
             ref name,
             ref url,
             ref description,
+            ref date,
             ref content,
-            thumbnail: ref _thumbnail,
+            ref thumbnail,
             ref skills,
             priority: ref _priority,
         } = self;
         // Header
         menu.info(&format!("=== {} ===", name))?;
         menu.info(&format!("{}", description))?;
+        menu.info(&format!("{}", date))?;
         menu.write_entry(
             ItemType::File,
             "(Plaintext version)",
             &format!("/projects/{}.txt", url),
+            &crate::CONFIG.domain,
+            crate::CONFIG.gopher_port,
+        )?;
+        menu.write_entry(
+            ItemType::Image,
+            "(Thumbnail)",
+            &format!("/images/{}", thumbnail),
             &crate::CONFIG.domain,
             crate::CONFIG.gopher_port,
         )?;

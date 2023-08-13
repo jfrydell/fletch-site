@@ -1,6 +1,6 @@
 use std::{
     convert::Infallible,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, BufWriter, Write},
     sync::Arc,
 };
 
@@ -85,7 +85,7 @@ pub fn handle(stream: TcpStream, content: Arc<crate::Content>) -> Result<()> {
         let image = std::path::Path::new("content/images/").join(image);
         if image.exists() {
             let mut file = std::fs::File::open(image)?;
-            std::io::copy(&mut file, &mut stream)?;
+            std::io::copy(&mut file, &mut BufWriter::new(stream))?;
         } else {
             stream.write_all(b"Image not found")?;
         }
