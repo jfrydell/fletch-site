@@ -79,13 +79,17 @@ impl BlogPostContent {
         use inkjet::{tree_sitter_highlight::HighlightEvent as TSEvt, Highlighter, Language};
         // See if language is supported
         let lang = match lang {
-            None => return Err(eyre!("Code block didn't include a language specifier. Use `plain` if no highlighting is desired.")),
+            None => {
+                return Err(eyre!("Code block didn't include a language specifier. Use `plain` if no highlighting is desired."));
+            }
             Some(lang) => {
                 if lang == "plain" {
-            return Ok(HighlightedCode { content: vec![(code.to_string(), None)]});
-        }
-            Language::from_token(lang)
-                .ok_or_else(|| eyre!("Language {} not supported by inkjet", lang))?
+                    return Ok(HighlightedCode {
+                        content: vec![(code.to_string(), None)],
+                    });
+                }
+                Language::from_token(lang)
+                    .ok_or_else(|| eyre!("Language {} not supported by inkjet", lang))?
             }
         };
         // Construct highlighter lazily and highlight events
