@@ -138,10 +138,13 @@ impl Content {
 
 /// Render a blog post content to HTML.
 fn render_blog_post(content: &BlogPostContent) -> Result<String> {
-    // Render links as html for testing callback
+    // Render links with style
     let link_callback = RenderCallback::Link(&|link, contents| {
-        format!("<a href=\"{}\">{}</a>", link.url, contents)
+        format!(
+            "<a class='text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400' href='{}'>{}</a>",
+            link.url, contents
+        )
     });
     // Render
-    content.render_markdown(&[link_callback])
+    content.render_html(&[link_callback])
 }

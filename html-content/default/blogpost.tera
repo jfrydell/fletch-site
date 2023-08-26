@@ -1,6 +1,9 @@
-<html>
-  <body>
-    {{ content_html | linebreaksbr | safe }}
+{% extends "base.tera" %}
+{% block title %}{{ post.title }} - {{ super() }}{% endblock title %}
 
-  </body>
-</html>
+{% block header_title %}{{ post.title }}{% endblock %}
+{% block header_subtitle %}{{ post.date }}{% endblock %}
+
+{% block content %}
+  {{ content_html | linebreaksbr | safe }}
+{% endblock content %}

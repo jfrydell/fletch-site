@@ -122,7 +122,100 @@ impl BlogPostContent {
                 result.push('\n');
             }
             _ => {
-                return Err(eyre!("Unhandled markdown node: {:?}", node));
+                return Err(eyre!("Unsupported markdown node: {:?}", node));
+            }
+        }
+        Ok(())
+    }
+
+    /// Render the content as HTML, but with a set of callbacks for handling some elements specially.
+    /// If multiple callbacks match an element, only the first is used.
+    pub fn render_html(&self, callbacks: &[RenderCallback]) -> Result<String> {
+        let mut rendered = String::new();
+        self.render_html_recurse(&self.markdown_ast, &mut rendered, callbacks)?;
+        Ok(rendered)
+    }
+    /// Recursive descent for HTML rendering. This is mainly used by `render_html`, but can be used
+    /// directly to render a subset of the markdown AST (for example, in a callback).
+    pub fn render_html_recurse(
+        &self,
+        node: &Node,
+        result: &mut String,
+        callbacks: &[RenderCallback],
+    ) -> Result<()> {
+        // Check for callbacks
+        for callback in callbacks {
+            if let Some(rendered) = callback.render(node, self, || {
+                let mut rendered = String::new();
+                for child in node.children().unwrap_or(&vec![]) {
+                    self.render_html_recurse(child, &mut rendered, callbacks)?;
+                }
+                Ok(rendered)
+            })? {
+                result.push_str(&rendered);
+                return Ok(());
+            }
+        }
+
+        // Helper macro to render children to result
+        macro_rules! children {
+            ($node:expr) => {
+                for child in $node.children.iter() {
+                    self.render_html_recurse(child, result, callbacks)?;
+                }
+            };
+        }
+
+        // Render node
+        match node {
+            Node::Root(r) => children!(r),
+            Node::FootnoteDefinition(d) => {
+                result.push_str(&format!(
+                    "<a id='footnote-{}', href='#footnote-ref-{}'>[{}]</a>",
+                    d.identifier, d.identifier, d.identifier
+                ));
+                children!(d);
+            }
+            Node::FootnoteReference(r) => result.push_str(&format!(
+                "<sup id='footnote-ref-{}'><a href='#footnote-{}'>{}</a></sup>",
+                r.identifier, r.identifier, r.identifier
+            )),
+            Node::InlineCode(c) => result.push_str(&format!("<code>{}</code>", c.value)),
+            Node::Delete(d) => {
+                result.push_str("<s>");
+                children!(d);
+                result.push_str("</s>");
+            }
+            Node::Emphasis(e) => {
+                result.push_str("<em>");
+                children!(e);
+                result.push_str("</em>");
+            }
+            Node::Link(l) => {
+                result.push_str(&format!("<a href='{}'>", l.url));
+                children!(l);
+                result.push_str("</a>");
+            }
+            Node::Strong(s) => {
+                result.push_str("<strong>");
+                children!(s);
+                result.push_str("</strong>");
+            }
+            Node::Text(t) => result.push_str(&t.value),
+            Node::Code(c) => result.push_str(&format!("<pre><code>{}</code></pre>", c.value)),
+            Node::Heading(h) => {
+                result.push_str(&format!("<h{}", h.depth));
+                children!(h);
+                result.push_str(&format!("</h{}>", h.depth));
+            }
+            Node::Paragraph(p) => {
+                result.push_str("<p>");
+                children!(p);
+                result.push_str("</p>");
+            }
+
+            _ => {
+                return Err(eyre!("Unsupported markdown node: {:?}", node));
             }
         }
         Ok(())
