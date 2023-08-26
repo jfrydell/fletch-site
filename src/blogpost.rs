@@ -30,7 +30,7 @@ where
 }
 
 /// A blog post's content. This includes the original markdown, the parsed markdown AST, and extra info like code block syntax highlighting.
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BlogPostContent {
     /// The raw markdown for the post.
     pub markdown: String,
@@ -122,7 +122,7 @@ impl BlogPostContent {
 // For use with highlight color indices in `HighlightedCode`s
 pub use inkjet::constants::HIGHLIGHT_NAMES;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HighlightedCode {
     /// A list of contents, each tagged with a highlight color (from tree-sitter via inkjet).
     pub content: Vec<(String, Option<usize>)>,
@@ -133,35 +133,9 @@ fn all_descendants(node: &Node) -> Vec<&Node> {
     // Setup
     let mut all_nodes = vec![node];
     let mut to_visit = vec![node];
-    /// Macro to do extension of vectors for shortening code
-    macro_rules! e {
-        ($node:expr) => {{
-            all_nodes.extend($node.children.iter());
-            to_visit.extend($node.children.iter());
-        }};
-    }
     // Traversal
     while let Some(node) = to_visit.pop() {
-        match node {
-            Node::Root(x) => e!(x),
-            Node::BlockQuote(x) => e!(x),
-            Node::FootnoteDefinition(x) => e!(x),
-            Node::MdxJsxFlowElement(x) => e!(x),
-            Node::List(x) => e!(x),
-            Node::Delete(x) => e!(x),
-            Node::Emphasis(x) => e!(x),
-            Node::MdxJsxTextElement(x) => e!(x),
-            Node::Link(x) => e!(x),
-            Node::LinkReference(x) => e!(x),
-            Node::Strong(x) => e!(x),
-            Node::Heading(x) => e!(x),
-            Node::Table(x) => e!(x),
-            Node::TableRow(x) => e!(x),
-            Node::TableCell(x) => e!(x),
-            Node::ListItem(x) => e!(x),
-            Node::Paragraph(x) => e!(x),
-            _ => {} // No children (hopefully)
-        }
+        all_nodes.extend(node.children().map(|v| v.iter()).unwrap_or_default());
     }
     all_nodes
 }
