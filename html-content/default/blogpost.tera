@@ -1,6 +1,6 @@
 <html>
   <body>
-    {{ post.content.markdown | linebreaksbr | safe }}
+    {{ content_html | linebreaksbr | safe }}
 
   </body>
 </html>
