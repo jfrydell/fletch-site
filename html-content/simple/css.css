@@ -1,7 +1,7 @@
 body {
     background-color: black;
     color: #e0eeee;
-    font-family: sans-serif;
+    font-family: monaco, Consolas, Lucida Console, monospace;
     line-height: 1.4;
 }
 
@@ -65,14 +65,14 @@ section {
     padding: 0.2em;
     display: flex;
     flex-direction: row;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: center;
     border: 1px solid rgba(240, 255, 255, 0.5);
     border-radius: 1em;
 }
 
 .project-info>h3 {
-    font-size: 1.5em;
+    font-size: 1.2em;
 }
 
 .project-info>* {
