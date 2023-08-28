@@ -2,8 +2,8 @@
 {% block title %}{{ post.title }} - {{ super() }}{% endblock title %}
 
 {% block header_title %}{{ post.title }}{% endblock %}
-{% block header_subtitle %}{{ post.date }}{% endblock %}
+{% block header_subtitle %}{{ post.date | split(pat="T") | first }}{% endblock %}
 
 {% block content %}
-  {{ content_html | linebreaksbr | safe }}
+  {{ content_html | safe }}
 {% endblock content %}
