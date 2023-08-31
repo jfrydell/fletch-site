@@ -1,5 +1,5 @@
 /target
-/tailwind.config.js
-/tailwindcss
+/.vscode
 .DS_Store
 .envrc.local
+
