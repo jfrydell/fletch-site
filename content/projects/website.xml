@@ -83,6 +83,14 @@
         </g>
     </section>
     <section>
+        <title>QOTD Presenter</title>
+        <g>
+            <p>Everyone loves the Quote of the Day protocol (<a href="https://datatracker.ietf.org/doc/html/rfc865.html" lead="" trail="">RFC 864</a>, one of the shortest RFCs I've read). After all, who wouldn't want a reserved port for when you need a random (not necessarily or even usually daily) quote or message? I certainly do!</p>
+            <p>To use this, just connect to port 17 over TCP (I just use netcat), and you'll get a random quote from one of these project pages. To generate quotes, I just grab all period-delimited sentence from the markdown generated for SSH. Often, this ends up being or including part of a link, but to me, that just makes the quotes even better. Enjoy!</p>
+            <p>Note: UDP is not supported mostly out of laziness, with the excuse being fear of amplified DDoS attacks via my QOTD service (we send up to 512 bytes in response to even a 1-byte input! Such amplification! Just too dangerous for the modern web).</p>
+        </g>
+    </section>
+    <section>
         <title>Upcoming Features / Short-Term To-Do List</title>
         <g>
             <p>Add a list element to the system so I can properly render this list</p>

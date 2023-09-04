@@ -10,6 +10,7 @@ use tracing::{debug, error, info, log::warn};
 mod gopher;
 mod html;
 mod project;
+mod qotd;
 mod ssh;
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
@@ -33,6 +34,8 @@ pub struct Config {
     pub ssh_first_timeout: Duration,
     /// The Gopher port to listen on.
     pub gopher_port: u16,
+    /// The QOTD port to listen on.
+    pub qotd_port: u16,
     /// Whether to watch for changes to the content directory (as well as any HTML templates) to update content.
     ///
     /// Currently affects all filesystem watching, but may be split into separate flags in the future.
@@ -70,6 +73,7 @@ impl Config {
                 30,
             )?),
             gopher_port: Self::parse_var("GOPHER_PORT")?,
+            qotd_port: Self::parse_var("QOTD_PORT")?,
             watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
             live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
             show_hidden: Self::parse_var_default("SHOW_HIDDEN", false)?,
@@ -114,6 +118,7 @@ impl Config {
             ssh_timeout,
             ssh_first_timeout,
             gopher_port,
+            qotd_port,
             watch_content,
             live_reload,
             show_hidden,
@@ -127,6 +132,7 @@ impl Config {
         debug!("  SSH_PORT: {}", ssh_port);
         debug!("  SSH_TIMEOUT: {}", ssh_timeout.as_secs());
         debug!("  SSH_FIRST_TIMEOUT: {}", ssh_first_timeout.as_secs());
+        debug!("  QOTD_PORT: {}", qotd_port);
         debug!("  GOPHER_PORT: {}", gopher_port);
         debug!("  WATCH_CONTENT: {}", watch_content);
         debug!("  LIVE_RELOAD: {}", live_reload);
@@ -212,7 +218,8 @@ async fn main() -> Result<Infallible> {
     tokio::select!(
         e = html::main(rx.resubscribe()) => e,
         e = ssh::main(rx.resubscribe()) => e,
-        e = gopher::main(rx) => e,
+        e = gopher::main(rx.resubscribe()) => e,
+        e = qotd::main(rx) => e,
         e = watch_content(tx) => e,
     )
 }
