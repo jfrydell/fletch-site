@@ -75,11 +75,19 @@
         </g>
     </section>
     <section>
+        <title>Gopher Presenter</title>
+        <g>
+            <p>When I described the SSH functionality of this site to my dad, his first response was that it sounded like <a href="https://en.wikipedia.org/wiki/Gopher_(protocol)" trail="">Gopher</a>. I had never heard of Gopher before, but it is a 1990's protocol for organizing and distributing documents over the web. Wikipedia claims that it "fell into disfavor, yielding to HTTP," but I still think it's a pretty cool to organize information, especially for simple documents (no web apps on Gopher!). Plus, it works well in a terminal, and is a pretty simple protocol, making it a natural protocol for me to implement.</p>
+            <p>So, I got to work serving content over it, following <a href="https://www.gkbrk.com/2019/06/gopher-server/">this blog post</a> about it. In hindsight, using a library for this was overkill, and doesn't fit very well with the way I handled SSH and HTTP (render content to presenter-specific format, then display logic is simple). It did make it easy to implement in just an hour or two, so feel free to try it out! (I use <a href="https://bombadillo.colorfield.space/">Bombadillo</a> as my Gopher client).</p>
+            <p>The basic structure of the Gopher site is pretty simple, roughly following the HTTPS site in structure, with a Gopher menu for each page, with markdown (non-canonical info lines) for content and submenu links for each internal link. I don't know that using menus for content pages is in the spirit of the Gopher protocol, but it's otherwise impossible to put links in content, which is something websites like this do a lot of. I do link a plaintext version of each page at the top as well if you prefer pure documents to menus containing links. It seems to work pretty well, apart from images, which rarely seem to download successfully.</p>
+        </g>
+    </section>
+    <section>
         <title>Upcoming Features / Short-Term To-Do List</title>
         <g>
             <p>Add a list element to the system so I can properly render this list</p>
             <p>Add a quick-switch theme to the HTML presenter to allow easier switching between themes while on a page (mostly for previewing my own changes)</p>
-            <p>Support the <a href="https://en.wikipedia.org/wiki/Gopher_(protocol)">Gopher protocol</a> with a new presenter</p>
+            <p>Fix Gopher protocol image downloads, and possibly rewrite the whole thing (it's pretty short, don't worry)</p>
             <p>Update the SSH vim app to be harder to quit (add <a href="https://vimdoc.sourceforge.net/htmldoc/cmdline.html#Command-line">command-line</a> editing)</p>
             <p>Add basic tab-completion to the SSH presenter's shell</p>
         </g>
