@@ -5,5 +5,20 @@
 {% block header_subtitle %}{{ post.date | split(pat="T") | first }}{% endblock %}
 
 {% block content %}
-  {{ content_html | safe }}
+  {{ self::render(content = post.content.content) }}
 {% endblock content %}
+
+{# Renders an array of `Element` enums #}
+{% macro render(content) %}
+{%- for element in content -%}
+{%- if element["$text"] -%}
+{{ element["$text"]|linebreaksbr|safe }}
+{%- elif element["a"] -%}
+{{ element.a['@lead'] }}<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400" href="{{ element.a['@href'] }}">{{
+  self::render(content = element.a["$value"]) }}</a>{{ element.a['@trail'] }}
+{%- elif element["c"] -%}
+{{ element.c['@lead'] }}<code>{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
+
+{%- endif -%}
+{%- endfor -%}
+{% endmacro %}

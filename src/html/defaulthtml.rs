@@ -3,8 +3,6 @@ use std::{collections::HashMap, sync::Arc};
 use color_eyre::Result;
 use tera::Tera;
 
-use crate::blogpost::{BlogPostContent, RenderCallback};
-
 /// Stores the rendered basic HTML content, for serving previews or writing to files.
 #[derive(Default)]
 pub struct Content {
@@ -66,7 +64,6 @@ impl Content {
         for blog_post in content.blog_posts.iter() {
             let mut context = tera::Context::new();
             context.insert("post", &blog_post);
-            context.insert("content_html", &render_blog_post(&blog_post.content)?);
             self.blog.insert(
                 blog_post.url.clone(),
                 self.tera.render("blogpost.tera", &context)?,
@@ -134,17 +131,4 @@ impl Content {
             }),
         )
     }
-}
-
-/// Render a blog post content to HTML.
-fn render_blog_post(content: &BlogPostContent) -> Result<String> {
-    // Render links with style
-    let link_callback = RenderCallback::Link(&|link, contents| {
-        format!(
-            "<a class='text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400' href='{}'>{}</a>",
-            link.url, contents
-        )
-    });
-    // Render
-    content.render_html(&[link_callback])
 }
