@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use chrono::NaiveDateTime;
 use color_eyre::{eyre::eyre, Result};
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 /// One blog post and all of its content and metadata.
 #[derive(Serialize, Deserialize, Debug)]
@@ -11,6 +10,7 @@ pub struct BlogPost {
     pub title: String,
     pub url: String,
     pub date: NaiveDateTime,
+    pub visibility: i32,
 
     #[serde(deserialize_with = "deserialize_content")]
     pub content: Content,

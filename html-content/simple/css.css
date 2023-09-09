@@ -48,10 +48,14 @@ ul.unstyled {
     padding: 0;
 }
 
+main,
 section {
     margin: auto;
+    max-width: 1200px;
+}
+
+section {
     padding: 1em 4em;
-    max-width: 2000px;
 }
 
 @media (max-width: 720px) {

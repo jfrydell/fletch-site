@@ -84,6 +84,11 @@ impl Content {
             }
         }
         blog_posts.sort_by_key(|p| p.date);
+
+        // If we disabled hidden blog posts, remove any with visibility 0
+        if !crate::CONFIG.show_hidden {
+            blog_posts.retain(|p| p.visibility > 0);
+        }
         info!("Loaded {} blog posts", blog_posts.len());
 
         // Verify that blog post urls and dates are unique

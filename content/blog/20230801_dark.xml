@@ -3,7 +3,7 @@
 <title>Hacking Railwind for Better Dark Mode</title>
 <url>railwind_darkmode</url>
 <date>2023-08-01T18:00:00</date>
-<visibility post=0 />
+<visibility>0</visibility>
 <content>
 For the default [theme](/themes) of my website, I use [Tailwind CSS](https://tailwindcss.com/) classes to make the front-end design easier. However, because my [site generator](/projects/website) is completely written in Rust, I didn't want to use the standard Tailwind installation with npm and dependencies outside the cargo ecosystem. Tailwind does offer a [standalone binary](https://tailwindcss.com/blog/standalone-cli), but it's still less convenient than a Rust-native solution for my use case, as I currently don't generate any HTML files to use as input to tailwind (it's all in memory).
 

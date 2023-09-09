@@ -12,6 +12,8 @@ pub struct Content {
     pub themes: String,
     /// Contents of `projects/` indexed by name
     pub projects: HashMap<String, String>,
+    /// Contents of `blog/` indexed by name
+    pub blog: HashMap<String, String>,
     /// CSS loaded from a file
     pub css: String,
     /// Templating engine
@@ -57,6 +59,17 @@ impl Content {
             );
         }
 
+        // Make blog pages
+        self.blog = HashMap::new();
+        for blog_post in content.blog_posts.iter() {
+            let mut context = tera::Context::new();
+            context.insert("post", &blog_post);
+            self.blog.insert(
+                blog_post.url.clone(),
+                self.tera.render("blogpost.tera", &context)?,
+            );
+        }
+
         // Load CSS
         self.css = tokio::fs::read_to_string("html-content/simple/css.css").await?;
 
@@ -70,7 +83,7 @@ impl Content {
             Index => Some(self.index.clone()),
             Themes => Some(self.themes.clone()),
             Project(name) => self.projects.get(&name).cloned(),
-            _ => None,
+            BlogPost(name) => self.blog.get(&name).cloned(),
         }
         .map(|page| {
             if pure {
