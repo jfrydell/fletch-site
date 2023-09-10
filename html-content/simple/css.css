@@ -42,6 +42,11 @@ a:visited:hover {
     color: #bb66ee;
 }
 
+ul {
+    list-style-type: circle;
+    margin: 0.1em;
+}
+
 ul.unstyled {
     list-style-type: none;
     margin: 0;

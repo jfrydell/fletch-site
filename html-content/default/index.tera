@@ -11,12 +11,12 @@
   <p class="max-w-screen-md mx-auto">{{ index_info.about_me }}</p>
 </section>
 
-<section>
+<section id="projects">
   <header class="p-5 text-center">
     <h2 class="p-2 italic text-2xl tracking-wide text-sky-600 dark:text-sky-500">- Projects -</h2>
     <p>{{ index_info.projects_caption }}</p>
   </header>
-  <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" id="projects">
+  <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
     {% for project in projects %}
     <li class="max-w-md mx-auto p-4">
       <div
@@ -38,6 +38,15 @@
         </div>
       </div>
     </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="p-5 text-center" id="blog">
+  <h2 class="p-2 italic text-2xl tracking-wide text-sky-600 dark:text-sky-500">- Blog -</h2>
+  <ul>
+    {% for post in blog_posts %}
+    <li>{{ post.date | split(pat="T") | first }}: <a class="underline" href="/blog/{{ post.url }}">{{ post.title }}</a></li>
     {% endfor %}
   </ul>
 </section>

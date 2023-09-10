@@ -10,7 +10,7 @@
   <h2>About Me</h3>
   <p>{{ index_info.about_me }}</p>
 </section>
-<section>
+<section id="projects">
   <header>
     <h2>Projects</h3>
       <p role="doc-subtitle">{{ index_info.projects_caption }}</p>
@@ -23,6 +23,14 @@
       <img src="/images/{{ project.thumbnail }}" width="200px"
         height="100px" alt="Thumbnail for {{ project.name }}">
     </li>
+    {% endfor %}
+  </ul>
+</section>
+<section id="blog">
+  <h2>Blog</h2>
+  <ul>
+    {% for post in blog_posts %}
+    <li>{{ post.date | split(pat="T") | first }}: <a href="/blog/{{ post.url }}">{{ post.title }}</a></li>
     {% endfor %}
   </ul>
 </section>
