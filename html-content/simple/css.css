@@ -42,16 +42,25 @@ a:visited:hover {
     color: #bb66ee;
 }
 
+ul {
+    list-style-type: circle;
+    margin: 0.1em;
+}
+
 ul.unstyled {
     list-style-type: none;
     margin: 0;
     padding: 0;
 }
 
+main,
 section {
     margin: auto;
+    max-width: 1200px;
+}
+
+section {
     padding: 1em 4em;
-    max-width: 2000px;
 }
 
 @media (max-width: 720px) {

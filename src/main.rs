@@ -3,15 +3,18 @@ use std::{convert::Infallible, future::Future, path::PathBuf, sync::RwLock, time
 use base64::Engine;
 use color_eyre::{eyre::eyre, Result};
 use once_cell::sync::Lazy;
-use serde::Serialize;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, log::warn};
 
+mod blogpost;
+mod content;
 mod gopher;
 mod html;
 mod project;
 mod qotd;
 mod ssh;
+
+pub use content::Content;
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
 #[derive(Debug)]
@@ -141,52 +144,9 @@ impl Config {
     }
 }
 
-#[derive(Serialize, Clone)]
-pub struct Content {
-    pub projects: Vec<project::Project>,
-    pub index_info: serde_json::Value,
-    pub themes_info: serde_json::Value,
-}
-impl Content {
-    /// Loads all content from the `content/` directory.
-    async fn load() -> Result<Content> {
-        // Get list of all projects from `content/projects`
-        let mut projects = Vec::new();
-        let mut entries = tokio::fs::read_dir("content/projects").await.unwrap();
-        while let Some(entry) = entries.next_entry().await.unwrap() {
-            let path = entry.path();
-            if path.is_file() {
-                // Load project
-                let project: project::Project = quick_xml::de::from_reader(
-                    std::io::BufReader::new(std::fs::File::open(path)?),
-                )?;
-                info!("Loaded project: {}", project.name);
-                projects.push(project);
-            }
-        }
-        projects.sort_by_key(|p| -p.priority);
-
-        // If we disabled hidden projects, remove any with priority <= 0
-        if !CONFIG.show_hidden {
-            projects.retain(|p| p.priority > 0);
-        }
-
-        // Load index and themes info
-        let index_info =
-            serde_json::from_str(&tokio::fs::read_to_string("content/index.json").await?)?;
-        let themes_info =
-            serde_json::from_str(&tokio::fs::read_to_string("content/themes.json").await?)?;
-
-        Ok(Content {
-            projects,
-            index_info,
-            themes_info,
-        })
-    }
-}
-
 static CONTENT: RwLock<Content> = RwLock::new(Content {
     projects: Vec::new(),
+    blog_posts: Vec::new(),
     index_info: serde_json::Value::Null,
     themes_info: serde_json::Value::Null,
 });

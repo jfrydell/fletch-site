@@ -51,6 +51,7 @@
   <nav class="sticky top-0 w-full p-2 bg-sky-900 flex flex-row font-light font-sans text-white z-10">
     <a href="/" class="p-2 hover:text-sky-300">Home</a>
     <a href="/#projects" class="p-2 hover:text-sky-300">Projects</a>
+    <a href="/#blog" class="p-2 hover:text-sky-300">Blog</a>
     <span class="flex-1"></span>
     <a href="/themes" class="p-2 hover:text-sky-300">Change Theme</a>
     <span class="basis-0 sm:basis-2"></span>

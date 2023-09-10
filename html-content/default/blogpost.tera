@@ -1,0 +1,33 @@
+{% extends "base.tera" %}
+{% block title %}{{ post.title }} - {{ super() }}{% endblock title %}
+
+{% block header %}
+<header class="font-sans mx-auto bg-sky-900 text-white text-center">
+  <h1 class="text-3xl font-bold pt-14">Fletch Rydell's Blog</h1>
+</header>
+{% endblock %}
+
+{% block content %}
+<main class="max-w-screen-lg p-4 mx-auto">
+  <header class="mx-auto">
+    <h2 class="text-3xl">{{ post.title }}</h2>
+    <p class="text-gray-600 dark:text-gray-400">{{ post.date | split(pat="T") | first }}</p>
+  </header>
+  {{ self::render(content = post.content.content) }}
+</main>
+{% endblock content %}
+
+{# Renders an array of `Element` enums #}
+{% macro render(content) %}
+{%- for element in content -%}
+{%- if element["$text"] -%}
+{{ element["$text"]|linebreaksbr|safe }}
+{%- elif element["a"] -%}
+{{ element.a['@lead'] }}<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400" href="{{ element.a['@href'] }}">{{
+  self::render(content = element.a["$value"]) }}</a>{{ element.a['@trail'] }}
+{%- elif element["c"] -%}
+{{ element.c['@lead'] }}<code>{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
+
+{%- endif -%}
+{%- endfor -%}
+{% endmacro %}

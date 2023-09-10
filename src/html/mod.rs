@@ -144,6 +144,16 @@ impl HtmlServer {
                     },
                 ),
             )
+            .route(
+                "/blog/*path",
+                get(
+                    |State(server): State<Arc<Self>>,
+                     Path(path): Path<String>,
+                     version: ExtractVersion| async move {
+                        server.get_page(Page::BlogPost(path), version).await
+                    },
+                ),
+            )
             .nest("/defaulthtml", defaulthtml::Content::router())
             .nest("/simplehtml", simplehtml::Content::router());
         // Add websocket handler if live reload is enabled

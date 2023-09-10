@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Hacking Railwind for Better Dark Mode</title>
+<url>railwind_darkmode</url>
+<date>2023-08-01T18:00:00</date>
+<visibility>0</visibility>
+<content>
+For the default [theme](/themes) of my website, I use [Tailwind CSS](https://tailwindcss.com/) classes to make the front-end design easier. However, because my [site generator](/projects/website) is completely written in Rust, I didn't want to use the standard Tailwind installation with npm and dependencies outside the cargo ecosystem. Tailwind does offer a [standalone binary](https://tailwindcss.com/blog/standalone-cli), but it's still less convenient than a Rust-native solution for my use case, as I currently don't generate any HTML files to use as input to tailwind (it's all in memory).
+
+So, after a little research, I decided to use [railwind](https://github.com/pintariching/railwind) for my CSS compilation. This allowed the CSS to be generated and stored alongside the HTML generated from my templates. However, after finishing much of the first version of the site, I encountered a problem with dark mode support.
+
+While I'm a consistent dark mode user for everything I use, and would not mind if every site were permenantly in dark mode, I do recognize it can be nice to easily be able to switch between dark and light modes. By default, tailwind's (and railwind's) dark mode [variant](https://tailwindcss.com/docs/dark-mode) is based on a media query, automatically matching the user's browser settings. However, I prefer dark mode toggles for most sites, which Tailwind supports via the `darkMode: 'class'` setting, which adds a `dark` class that enables dark mode when present, allowing for manual toggles to be made with basic JS.
+
+However, the same is not possible in railwind, due to its lack of a <c>tailwind.config.js</c> file. Instead, the railwind compiler always emits <c lang="css">@media (prefers-color-scheme: dark) {</c> wrappers around every dark variant class. While I was initally going to edit this in railwind's code, I soon gave up navigating its structure (which has changed greatly version-to-version) and instead decided to quickly patch it with some basic find-and-replace logic.
+
+However, because CSS <c lang="css">@media</c> queries wrap around other rules, while the class-based manual dark mode adds an extra class to the rule, doing this was slightly non-trivial. To get it working, I settled on replacing lines beginning with <c lang="css">@media (prefers-color-scheme: dark) {</c> with
+<cb lang="css">
+@media screen { .dark
+</cb>
+where the <c lang="css">@media screen {</c> selects all screens.<fnref ref="screen_feature" /> 
+
+I hate this "fix." Everything about it, from the `.dark` class specifier dangling at the end of the line to the hard-coded string-replacement that will break on the tiniest change to railwind. Everytime I scroll past it in my code, I remember that I should change it, and yet I haven't. Because it works. So here it remains, as I procrastinate fixing it to add yet more features to the site. Perhaps it's a reminder that aladsgakljbv;klfbjnlksdnv
+
+<footnote ref="screen_feature">Arguably a feature, as (AFAIK) the only alternative is `print` where dark mode just wastes ink!.</footnote>
+</content>
+</blogpost>
