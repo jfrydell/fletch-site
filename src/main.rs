@@ -10,6 +10,7 @@ mod blogpost;
 mod content;
 mod gopher;
 mod html;
+mod imap;
 mod pop3;
 mod project;
 mod qotd;
@@ -40,6 +41,8 @@ pub struct Config {
     pub gopher_port: u16,
     /// The QOTD port to listen on.
     pub qotd_port: u16,
+    /// The IMAP port to listen on.
+    pub imap_port: u16,
     /// The POP3 port to listen on.
     pub pop3_port: u16,
     /// Whether to watch for changes to the content directory (as well as any HTML templates) to update content.
@@ -80,6 +83,7 @@ impl Config {
             )?),
             gopher_port: Self::parse_var("GOPHER_PORT")?,
             qotd_port: Self::parse_var("QOTD_PORT")?,
+            imap_port: Self::parse_var("IMAP_PORT")?,
             pop3_port: Self::parse_var("POP3_PORT")?,
             watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
             live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
@@ -126,6 +130,7 @@ impl Config {
             ssh_first_timeout,
             gopher_port,
             qotd_port,
+            imap_port,
             pop3_port,
             watch_content,
             live_reload,
@@ -142,6 +147,7 @@ impl Config {
         debug!("  SSH_FIRST_TIMEOUT: {}", ssh_first_timeout.as_secs());
         debug!("  GOPHER_PORT: {}", gopher_port);
         debug!("  QOTD_PORT: {}", qotd_port);
+        debug!("  IMAP_PORT: {}", imap_port);
         debug!("  POP3_PORT: {}", pop3_port);
         debug!("  WATCH_CONTENT: {}", watch_content);
         debug!("  LIVE_RELOAD: {}", live_reload);
@@ -187,6 +193,7 @@ async fn main() -> Result<Infallible> {
     services.spawn(gopher::main(rx.resubscribe()));
     services.spawn(qotd::main(rx.resubscribe()));
     services.spawn(pop3::main(rx.resubscribe()));
+    services.spawn(imap::main(rx.resubscribe()));
     services.spawn(watch_content(tx));
     services.join_next().await.unwrap()?
 }
