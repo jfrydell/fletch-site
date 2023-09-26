@@ -22,7 +22,7 @@ pub struct Content {
 
 impl Content {
     /// Renders the default HTML pages from the general content.
-    pub async fn new(content: &crate::Content) -> Result<Self> {
+    pub fn new(content: &crate::Content) -> Result<Self> {
         // The template engine is the only thing that must be loaded for html-specific content, so load that first.
         let mut tera = Tera::new("html-content/default/**/*.tera")?;
         tera.autoescape_on(vec![".tera"]);
@@ -32,12 +32,12 @@ impl Content {
             tera,
             ..Default::default()
         };
-        result.refresh(content).await?;
+        result.refresh(content)?;
         Ok(result)
     }
 
     /// Rerender the basic HTML from the given content.
-    pub async fn refresh(&mut self, content: &crate::Content) -> Result<()> {
+    pub fn refresh(&mut self, content: &crate::Content) -> Result<()> {
         // Make index page
         let context = tera::Context::from_serialize(content)?;
         self.index = self.tera.render("index.tera", &context)?;

@@ -218,7 +218,7 @@ where
     use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
     if !CONFIG.watch_content {
-        // If we're not watching content, just stop task (can't return because it's and endless task, but sleeping forever as good in `select!()`)
+        // If we're not watching content, just stop task (can't return because it's an endless task, but sleeping forever as good in `select!()`)
         return Ok(futures::future::pending::<Infallible>().await);
     }
 

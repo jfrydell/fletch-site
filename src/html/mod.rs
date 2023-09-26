@@ -19,7 +19,7 @@ mod simplehtml;
 /// Runs the HTML service, given a broadcast channel to notify it of content changes.
 pub async fn main(rx: broadcast::Receiver<()>) -> Result<Infallible> {
     // Create initial server
-    let server = Arc::new(HtmlServer::new(&crate::CONTENT.read().unwrap()).await?);
+    let server = Arc::new(HtmlServer::new(&crate::CONTENT.read().unwrap())?);
 
     // Run server, global change listener, and local change listener. If any of them return an error, return it.
     tokio::select!(
@@ -37,9 +37,9 @@ pub struct HtmlServer {
     websocket_tx: broadcast::Sender<()>,
 }
 impl HtmlServer {
-    async fn new(content: &crate::Content) -> Result<Self> {
+    fn new(content: &crate::Content) -> Result<Self> {
         Ok(Self {
-            content: RwLock::new(HtmlContent::new(content).await?),
+            content: RwLock::new(HtmlContent::new(content)?),
             websocket_tx: broadcast::channel(1).0,
         })
     }
@@ -95,7 +95,7 @@ impl HtmlServer {
                 }
             };
             debug!("Reloading HTML content...");
-            match self.refresh_content(&crate::CONTENT.read().unwrap()).await {
+            match self.refresh_content().await {
                 Ok(_) => info!("Reloaded HTML content"),
                 Err(e) => error!("Failed to reload HTML content: {e}"),
             }
@@ -106,8 +106,7 @@ impl HtmlServer {
     /// Listens for local content (template) changes, hard reloading when they occur.
     async fn listen_local_changes(&self) -> Result<Infallible> {
         crate::watch_path(std::path::Path::new("html-content/"), || async {
-            self.refresh_content_hard(&crate::CONTENT.read().unwrap())
-                .await?;
+            self.refresh_content_hard().await?;
             self.reload_clients();
             Ok(())
         })
@@ -214,15 +213,18 @@ impl HtmlServer {
     }
 
     /// Reloads the HTML content from scratch, rebuilding templates and populating general content.
-    async fn refresh_content_hard(&self, new_content: &crate::Content) -> Result<()> {
-        let new_content = HtmlContent::new(new_content).await?;
+    async fn refresh_content_hard(&self) -> Result<()> {
+        let new_content = HtmlContent::new(&crate::CONTENT.read().unwrap())?;
         *self.content.write().await = new_content;
         Ok(())
     }
 
     /// Reloads the HTML content based on the new general content, without reloading HTML templates.
-    async fn refresh_content(&self, new_content: &crate::Content) -> Result<()> {
-        self.content.write().await.refresh(new_content).await?;
+    async fn refresh_content(&self) -> Result<()> {
+        self.content
+            .write()
+            .await
+            .refresh(&crate::CONTENT.read().unwrap())?;
         Ok(())
     }
 
@@ -361,19 +363,18 @@ struct HtmlContent {
 
 impl HtmlContent {
     /// Renders the HTML content based on the given general content, from scratch.
-    async fn new(content: &crate::Content) -> Result<Self> {
-        let (default, simple) = tokio::try_join!(
-            defaulthtml::Content::new(content),
-            simplehtml::Content::new(content)
-        )?;
-        Ok(Self { default, simple })
+    fn new(content: &crate::Content) -> Result<Self> {
+        Ok(Self {
+            default: defaulthtml::Content::new(content)?,
+            simple: simplehtml::Content::new(content)?,
+        })
     }
 
     /// Reloads the HTML content based on the given general content, without recreating the HTML content object itself.
     /// This should be used when the general content changes, but the HTML specific content (templates, etc.) does not.
-    async fn refresh(&mut self, content: &crate::Content) -> Result<()> {
-        self.default.refresh(content).await?;
-        self.simple.refresh(content).await?;
+    fn refresh(&mut self, content: &crate::Content) -> Result<()> {
+        self.default.refresh(content)?;
+        self.simple.refresh(content)?;
         Ok(())
     }
 }
