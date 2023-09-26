@@ -5,16 +5,67 @@
 <description>A wearable device to track surgical residents in the operating room, measuring their practical experience.</description>
 <date>2022.08-2022.12</date>
 <skills>
-
+    <skill>Embedded Development</skill>
+    <skill>Backend Web Development</skill>
+    <skill>AWS DynamoDB</skill>
+    <skill>RFID</skill>
 </skills>
 <content>
     <section>
+        <title>Overview</title>
         <g>
-            <p>This is another test project. It's slightly different.</p>
-            <p>Testing is fun!</p>
+            <p>To complete their training, residents in Duke Hospital's Neurosurgery Department have to fulfill certain requirements for practical operating room experience, including requirements on both number of procedures and the roles they perform within them.</p>
+            <p>To accurately evaluate whether trainees are getting this necessary experience, I worked with a team of engineers to create a wearable surgery tracker, collecting data about performance during operation, rather than relying on inconsistent surveys of surgery participants days or weeks later.</p>
+            <p>The prototype device used an RFID scanner to read tags on surgical tools, creating a timeline of when each participant in a surgery was using each tool. Using this data, the sections of each procedure performed by a surgeon could be found, and improvement could be tracked over time.</p>
+        </g>
+    </section>
+    <criteria>
+        <title>Design Criteria</title>
+        <item>
+            <title>Objective Data</title>
+            <description>Duke uses subjective surveys of residents and faculty to determine a resident's role in a procedure, which can be inconsistent or inaccurate. Our system tracks what happens during a surgery, maintaining acuracy through objectivity.</description>
+        </item>
+        <item>
+            <title>Usability / Ergonomics</title>
+            <description>Because the device will be used during surgery, it must be unobtrusive in both form factor and usability. Our device was lightweight, ergonomic, and required no interaction after being turned on prior to entering the OR.</description>
+        </item>
+        <item>
+            <title>Hospital-Grade Ruggedness</title>
+            <description>It is essential that worry about our device does not distract users from their jobs. This includes an above 8-hour battery life for long surgeries, as well as autoclavability to make sterilization hassle-free.</description>
+        </item>
+    </criteria>
+    <section>
+        <title>Data Collection</title>
+        <g>
+            <p>To track resident training process, Duke Hospital's <a href="https://info.surgicalautonomy.org/#top">Surgical Automony Program</a> classifies each resident's performance in a procedure into one of four categories based on how much faculty assistance was needed.</p>
+            <p>To determine these categorizations more accurately, our contact with the Duke Hospital suggested tracking which tools each surgeon held at any given time. Then, the amount of assistance a resident needed in the procedure could be determined by how the principle instruments of the operation moved from surgeon to surgeon.</p>
+            <p>To facilitate this, we used the <a href="https://www.id-innovations.com/Modules(non%20write).htm">ID-20LA</a> 125 kHz RFID reader to read tags placed on the tools multiple times per second. After verifying a tag's presence/absence for several readings, the pick-up or put-down of the instrument is logged by the device, giving a high-resolution graph of exactly how tools changed hands during a surgery.</p>
+        </g>
+    </section>
+    <section>
+        <title>Collating Data</title>
+        <g>
+            <p>After prototyping and evaluating several methods to collect information from several devices, including microSD cards, post-procedure USB upload, and Bluetooth, we ultimately decided to use a Wi-Fi enabled ESP-32 microcontroller to upload data to a database as it was gathered. This minimized the amount of interaction required with the device, and increased resiliance to power loss mid-surgery.</p>
+            <p>To collect the data, I created a simple API through AWS that updated a DynamoDB database whenever an event was logged. Upon device startup, the microcontroller generates a UUID for its recording, and on first detection of an instrument, a corresponding recording is added to DynamoDB, along with the current time and time since startup.</p>
+            <p>After the procedure, all currently unmatched recordings are visible online on a "New Procedure" wizard, where the user can add each participant in a surgery and attach the corresponding recording, at which point all data is grouped together and becomes available for analysis.</p>
+        </g>
+    </section>
+    <section>
+        <title>Analysis / Presentation</title>
+        <g>
+            <p>The data analysis platform we created was probably the least developed portion of our final prototype, but the basic workflow is fairly simple.</p>
+            <p>After creating a new procedure and attaching recordings, a timeline of all the surgical instruments used is shown. From there, they can mark each resident as one of the four categories based on which parts of the surgery they can see were completed. Each individual surgeon's page links to all procedures they've participated in, showing their progress over time.</p>
+            <p>The vision left for future development is automatic categorization of each resident's performance, so that only a quick verification needs to be done. Also, using data collected about which tools were used over time, each procedure could be divided into several parts, and sugeons could be graded on each of these individually. This more precise data could provide insight into exactly what surgeons are lacking in their training, more precisely tracking their progress over time.</p>
+        </g>
+    </section>
+    <section>
+        <title>Final Prototype</title>
+        <g>
+            <p>This is a screenshot of part of my team's final poster presentation for the project, including a picture of the final prototype device.</p>
+            <img src="surgery_poster.png" alt="final prototype infographic" />
         </g>
     </section>
 </content>
 <thumbnail>surgery_final.jpg</thumbnail>
-<priority>0</priority>
+<priority>2</priority>
 </project>
