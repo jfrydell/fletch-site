@@ -181,14 +181,14 @@ async fn main() -> Result<Infallible> {
     let (tx, rx) = broadcast::channel(1);
 
     // Run all services
-    tokio::select!(
-        e = html::main(rx.resubscribe()) => e,
-        e = ssh::main(rx.resubscribe()) => e,
-        e = gopher::main(rx.resubscribe()) => e,
-        e = qotd::main(rx.resubscribe()) => e,
-        e = pop3::main(rx.resubscribe()) => e,
-        e = watch_content(tx) => e,
-    )
+    let mut services = tokio::task::JoinSet::new();
+    services.spawn(html::main(rx.resubscribe()));
+    services.spawn(ssh::main(rx.resubscribe()));
+    services.spawn(gopher::main(rx.resubscribe()));
+    services.spawn(qotd::main(rx.resubscribe()));
+    services.spawn(pop3::main(rx.resubscribe()));
+    services.spawn(watch_content(tx));
+    services.join_next().await.unwrap()?
 }
 
 /// Watches for changes to the shared `Content` and updates the static variable as needed. On update, sends a message on
