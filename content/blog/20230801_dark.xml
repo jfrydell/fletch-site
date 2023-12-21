@@ -19,8 +19,8 @@ However, because CSS <c lang="css">@media</c> queries wrap around other rules, w
 </cb>
 where the <c lang="css">@media screen {</c> selects all screens.<fnref ref="screen_feature" /> 
 
-I hate this "fix." Everything about it, from the `.dark` class specifier dangling at the end of the line to the hard-coded string-replacement that will break on the tiniest change to railwind. Everytime I scroll past it in my code, I remember that I should change it, and yet I haven't. Because it works. So here it remains, as I procrastinate fixing it to add yet more features to the site. Perhaps it's a reminder that aladsgakljbv;klfbjnlksdnv
+I hate this "fix." Everything about it, from the <c>.dark</c> class specifier dangling at the end of the line to the hard-coded string-replacement that will break on the tiniest change to railwind. Everytime I scroll past it in my code, I remember that I should change it, and yet I haven't. Because it works. So here it remains, as I procrastinate fixing it to add yet more features to the site. Perhaps it's a reminder that aladsgakljbv;klfbjnlksdnv
 
-<footnote ref="screen_feature">Arguably a feature, as (AFAIK) the only alternative is `print` where dark mode just wastes ink!.</footnote>
+<footnote ref="screen_feature">Arguably a feature, as (AFAIK) the only alternative is <c>print</c> where dark mode just wastes ink!.</footnote>
 </content>
 </blogpost>

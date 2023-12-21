@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+<name>FPGA GPU</name>
+<url>gpu</url>
+<description>Homemade GPU rendering realistic scenes in real time, for some definition of "GPU," "realistic," "real time," and "homemade."</description>
+<date>2023.11-2023.12</date>
+<skills>
+</skills>
+<content>
+    <section>
+        <title>Overview</title>
+        <g>
+            <p>In my introductory Digital Systems class (Duke ECE 350), we made a basic <a href="https://doi.org/10.1016/b978-1-4832-0775-9.50014-2">5-stage pipelined</a> processor in Verilog. For the final class project, I added graphics capabilities to my CPU with a GPU featuring a 16-lane half-precision vector processor reaching 400 MFLOPS of throughput. Video is output through the built-in VGA port of the <a href="https://digilent.com/reference/programmable-logic/nexys-a7/reference-manual">Nexys A7</a> FPGA development board.</p>
+            <p>This page describes some of the features and interesting design decisions that went into this; for a more complete description, see the <a href="#">technical report</a> I wrote for the class as well as a <a href="https://youtu.be/djKwKtLqRR4" trail="">video demo</a>.</p>
+        </g>
+    </section>
+    <criteria>
+        <title>Fun (to me) Features</title>
+        <item>
+            <title>Goofy ISA</title>
+            <description>Features thirteen 20-bit instructions with nonsensical binary encoding decisions. Includes instructions like "decrement the X register and branch if the new value is nonnegative" and "compute 1/pi times arctan(x)" while omitting useless garbage like "add immediate" and the ability to write to registers 0-16.</description>
+        </item>
+        <item>
+            <title>Innovative No-Memory Architecture</title>
+            <description>Apple claims their unified-memory architecture allows lower latency and higher power efficiency, but what could be faster or more efficient than getting rid of memory entirely? Want to communicate between CPU and GPU anyway <a href="https://knowyourmeme.com/memes/stop-doing-math" trail="">for a laugh</a>? We have a tool for that: it's called REGISTERS.</description>
+        </item>
+        <item>
+            <title>Using All the Memory</title>
+            <description>Ok, that last point was a bit of a lie: the GPU does have a framebuffer to store the rendered image. In fact, this framebuffer (along with some other memories) uses 97% of our FPGA's available BRAM. Details of my struggle to fit this in are in the techincal report linked above.</description>
+        </item>
+    </criteria>
+    <section>
+        <title>Datapath Overview</title>
+        <g>
+           <p>The GPU core has a 4 stage (Fetch, Decode, Execute, Writeback) vector pipeline, with 16 lanes. Of the 8 arithmetic operations supported, 5 are implemented with Vivado's Floating Point IP blocks, the 2 simplest (floor and abs) are implemented manually, and 1 (arctan divided by pi) uses a 2048-entry lookup table.</p>
+           <p>A simple wrapper/scheduler module runs the program once for each block of 16 pixels (left-to-right), setting registers for the x and y coordinates for use in the program. Once the program reaches a special "done" instruction, the resulting color (placed in 3 specail registers) is written to the framebuffer. A separate VGA output module scans through this framebuffer and outputs at 60fps, with no VSync or tearing mitigation to speak of.</p>
+        </g>
+        <img src="gpu/mandel_zoom.jpg" alt="A zoomed-in rendering of the Mandelbrot set appearing very pixelated due to floating point imprecision.">
+            <caption>All operations use 16-bit (half-precision) floats, which becomes all too apparent after zooming in only a few times on my Mandelbrot visualizer.</caption>
+        </img>
+    </section>
+    <section>
+        <title>Register File</title>
+        <g>
+            <p>Because 16-wide memory access is not a problem I wanted to think about for a 3-week class project (I don't even have integer registers to store addresses), I decided to use 32 registers for all communication from the CPU to GPU as well as for all computation.</p>
+            <p>For simplicity, the first 16 registers each store a single scalar value and are read-only to the GPU core. 3 are special cases (zero register and x and y coordinate) and the remaining 13 are used for any parameters set by the CPU and constants used by the GPU (to avoid wasting cycles setting constants repeatedly). This ended up being very nice for debugging, as the output image is (eventually, barring reads of leftover values in registers 17-31) a pure function of these registers, allowing easy testing of GPU programs before doing any integration with the CPU.</p>
+            <p>The remaining 16 registers are vector registers (with a separate register file in each element's datapath). Register 16 holds the numbers 0-15 (each element's index), providing the only source of divergence between vector elements. The rest are standard writable registers, with 3 being reserved for the pixel's output color.</p>
+        </g>
+    </section>
+    <section>
+        <title>Dithering</title>
+        <g>
+            <p>After a program is done running on a pixel, the resulting floating-point color values (clamped to 0-1) need to be converted to integers for the VGA output. Unfortunately, the Nexys A7's VGA interface supports only 4 bits per channel, which initially led to severe banding.</p>
+            <p>To remedy this, I introduced randomized dithering to the float-to-fixed conversion. Values are converted to 7-bit fixed-point first (now ranging from 0 to 15.875), and are rounded up or down based on a pseudo-random per-channel cutoff generated with an LSFR. This ensures that the expected brightness of a subpixel precisely matches the output value (to 7 bits, anyway), despite only having 4 bits to work with.</p>
+            <p>For slower renders like the ball demo shown, recomputing this dithering per 60fps VGA frame would have been preferable, but BRAM limitations meant that 12 bits per pixel was the maximum possible in the framebuffer, even if more were supported by the VGA interface.</p>
+        </g>
+        <g>
+            <img src="gpu/noditherbad.png" alt="A rendering of a ball with severe banding in the diffuse lighting">
+                <caption>My 3D scene without dithering, with significant banding.</caption>
+            </img>
+            <img src="gpu/dithergood.png" alt="A rendering of a ball with a smooth gradient in the lighting.">
+                <caption>Adding dithering significantly improves the quality, despite having only 12-bit color.</caption>
+            </img>
+        </g>
+    </section>
+</content>
+<thumbnail>gpu/ball.jpg</thumbnail>
+<priority>-25</priority>
+</project>
