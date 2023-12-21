@@ -1,4 +1,4 @@
-use std::{convert::Infallible, future::Future, path::PathBuf, sync::RwLock, time::Duration};
+use std::{convert::Infallible, future::Future, sync::RwLock, time::Duration};
 
 use base64::Engine;
 use color_eyre::{eyre::eyre, Result};
@@ -24,10 +24,6 @@ pub struct Config {
     pub domain: String,
     /// The HTTP port to listen on.
     pub http_port: u16,
-    /// The directory containing TLS certificates.
-    pub cert_dir: Option<PathBuf>,
-    /// A redirect port to listen for HTTP requests on, redirecting to HTTPS.
-    pub http_redirect_port: Option<u16>,
     /// The ssh port to listen on.
     pub ssh_port: u16,
     /// The ed25519 keypair to use for ssh.
@@ -57,8 +53,6 @@ impl Config {
         Ok(Self {
             domain: std::env::var("DOMAIN")?,
             http_port: Self::parse_var("HTTP_PORT")?,
-            cert_dir: std::env::var("CERT_DIR").map(PathBuf::from).ok(),
-            http_redirect_port: Self::parse_var("HTTP_REDIRECT_PORT").ok(),
             ssh_port: Self::parse_var("SSH_PORT")?,
             ssh_key: ed25519_dalek::Keypair::from_bytes(
                 &base64::engine::general_purpose::STANDARD
@@ -119,8 +113,6 @@ impl Config {
         let Self {
             domain,
             http_port,
-            cert_dir,
-            http_redirect_port,
             ssh_port,
             ssh_timeout,
             ssh_first_timeout,
@@ -135,8 +127,6 @@ impl Config {
         debug!("Config:");
         debug!("  DOMAIN: {}", domain);
         debug!("  HTTP_PORT: {}", http_port);
-        debug!("  CERT_DIR: {:?}", cert_dir);
-        debug!("  HTTP_REDIRECT_PORT: {:?}", http_redirect_port);
         debug!("  SSH_PORT: {}", ssh_port);
         debug!("  SSH_TIMEOUT: {}", ssh_timeout.as_secs());
         debug!("  SSH_FIRST_TIMEOUT: {}", ssh_first_timeout.as_secs());
