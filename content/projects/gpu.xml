@@ -11,11 +11,11 @@
         <title>Overview</title>
         <g>
             <p>In my introductory Digital Systems class (Duke ECE 350), we made a basic <a href="https://doi.org/10.1016/b978-1-4832-0775-9.50014-2">5-stage pipelined</a> processor in Verilog. For the final class project, I added graphics capabilities to my CPU with a GPU featuring a 16-lane half-precision vector processor reaching 400 MFLOPS of throughput. Video is output through the built-in VGA port of the <a href="https://digilent.com/reference/programmable-logic/nexys-a7/reference-manual">Nexys A7</a> FPGA development board.</p>
-            <p>This page describes some of the features and interesting design decisions that went into this; for a more complete description, see the <a href="#">technical report</a> I wrote for the class as well as a <a href="https://youtu.be/djKwKtLqRR4" trail="">video demo</a>.</p>
+            <p>This page describes some of the features and interesting design decisions that went into this; for a more complete description, see the <a href="https://github.com/jfrydell/fpga-gpu/blob/main/report/report.pdf">technical report</a> I wrote for the class as well as a <a href="https://youtu.be/djKwKtLqRR4" trail="">video demo</a>.</p>
         </g>
     </section>
     <criteria>
-        <title>Fun (to me) Features</title>
+        <title>Fun (to&#160;me) Features</title>
         <item>
             <title>Goofy ISA</title>
             <description>Features thirteen 20-bit instructions with nonsensical binary encoding decisions. Includes instructions like "decrement the X register and branch if the new value is nonnegative" and "compute 1/pi times arctan(x)" while omitting useless garbage like "add immediate" and the ability to write to registers 0-16.</description>
@@ -26,7 +26,7 @@
         </item>
         <item>
             <title>Using All the Memory</title>
-            <description>Ok, that last point was a bit of a lie: the GPU does have a framebuffer to store the rendered image. In fact, this framebuffer (along with some other memories) uses 97% of our FPGA's available BRAM. Details of my struggle to fit this in are in the techincal report linked above.</description>
+            <description>Ok, that last point was a bit of a lie: the GPU does have a framebuffer to store the rendered image. In fact, this framebuffer (along with some other memories) uses 97% of our FPGA's available BRAM. Details of my struggle to fit this in are in Section IV.A of the techincal report linked above.</description>
         </item>
     </criteria>
     <section>
@@ -63,7 +63,45 @@
             </img>
         </g>
     </section>
+    <section>
+        <title>Conditional Branching</title>
+        <g>
+            <p>Initially, my GPU was purely a vector machine, with every instruction running on all elements. Anything resembling conditional control flow was implemented with a simple conditional move instruction, effectively executing both branch paths and selecting the correct one.</p>
+            <p>Later on, however, I decided to basic support conditional branching, with significant restrictions. When the single supported branch is encountered, any elements taking the branch set a "next PC" register to the branch destination and do not execute instructions prior to this point being reached. If some elements of the vector do not take the branch, this is equivalent to predication-based control flow, but if they all eventually do, the fetch stage includes logic to skip ahead to the minimum of these next PC registers.</p>
+            <p>This logic can significantly simplify code (although it was a bit too late to do much in that regard) and also improve performance, which it did greatly. The ability to break out of a raymarching or fractal computing loop early improved the raymarched 3D scene's performance from 3-4 FPS up to 8-10 FPS. While it's not a true <a href="https://en.wikipedia.org/wiki/Single_instruction,_multiple_threads">SIMT</a> processor (for many reasons; we don't even have memory!), this optimization was one of my favorite ideas that went into this project.</p>
+        </g>
+    </section>
+    <section>
+        <title>Demos / Links</title>
+        <g>
+            <p>To show off the GPU, I wrote three small demonstration programs, showcased in <a href="https://youtu.be/djKwKtLqRR4">this short video</a> of part of my final presentation. These demos included: an "auto runner"–style game rendering a 2.5D tunnel in real time and responding to input, a raymarched 3D scene of a ball on a checkerboard with <a href="https://en.wikipedia.org/wiki/Phong_reflection_model">Phong lighting</a> and reflections, and a fractal explorer showing the Mandelbrot set.</p>
+            <p>The code for these demos, as well as the GPU (but not any Vivado IP blocks or CPU components required to use it) can be found <a href="https://github.com/jfrydell/fpga-gpu" trail="">on GitHub</a>. Additionally, I hope to make a few posts about other small interesting aspects of this project, and will link them here if I ever get around to it. Below are a few photos of the demos:</p>
+            <gallery>
+                <img src="gpu/tunnel.jpg" alt="A monitor displaying a gray ball rolling through a red and green spiralled tunnel, jumping over a blue ring in the tunnel.">
+                    <caption>The demo game as I jump over a blue ring. The red/green tunnel is rendered with basic trig, with shading based on the calculated distance to the tunnel giving a 3D effect with little computation.</caption>
+                </img>
+                <img src="gpu/ballbottom.jpg" alt="A monitor displaying a ball sitting on a checkerboard with reflections.">
+                    <caption>The raymarched 3D scene, featuring a reflective ball on a checkerboard floor. Could use some antialiasing and less ambient light on the ball, but not too bad.</caption>
+                </img>
+                <img src="gpu/balltop.jpg" alt="A monitor displaying a ball floating above checkerboard with reflections.">
+                    <caption>The CPU program bounces the ball up and down. At its highest, aliasing makes reflections pretty inaccurate, but it's less noticeable in motion.</caption>
+                </img>
+                <img src="gpu/mandelbrot.jpg" alt="A monitor displaying a zoomed-out rendering of the Mandelbrot set.">
+                    <caption>My rendering of the Mandelbrot set. A lack of logarithm instruction makes smoothing iteration count hard, but square rooting the blue component to get green and red gave a suprisingly nice color scheme!</caption>
+                </img>
+                <img src="gpu/mandelbrot_zoom1.jpg" alt="A monitor displaying a zoomed-in rendering of the Mandelbrot set.">
+                    <caption>Zooming in on the Mandelbrot set. Imprecisions in floats and low resolution make this not much of a fractal, but not too bad at low zoom.</caption>
+                </img>
+                <img src="gpu/tunnel_rollingshutter.jpg" alt="A monitor a circle with streaks of red, green, and blue.">
+                    <caption>An earlier version of the demo game had no loss condition and sped up infinitely, leading to an interesting visualization of rolling shutter–like effects after running for an hour.</caption>
+                </img>
+                <img src="gpu/mandelbrot_coolcolor.jpg" alt="The mandelbrot set with a red, pink, white, and yellow color scheme tiling the outside of the set.">
+                    <caption>An early test of the Mandlebrot explorer just output the real/imaginary coordinates of the final point reached on the green and blue channels, leading to an interesting color scheme (note that colors are assumed to be 0 to 1, which most coordinates are well outside of, leading to discrete tiles).</caption>
+                </img>
+            </gallery>
+        </g>
+    </section>
 </content>
 <thumbnail>gpu/ball.jpg</thumbnail>
-<priority>-25</priority>
+<priority>25</priority>
 </project>
