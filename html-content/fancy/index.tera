@@ -149,15 +149,15 @@
   </header>
 </section>
 <section id="projects" class="min-h-screen">
-  <h2 class="text-center text-3xl pt-4 sticky top-0" id="projects-head"><span class="inline-block">Projects</span></h2>
+  <h2 class="text-center text-3xl pt-4" id="projects-head"><span class="inline-block">Projects</span></h2>
   <ul>
     {% for project in projects %}
     <li class="py-4 clear-both">
-      <div class="project-card">
+      <a href="projects/{{ project.url }}" class="project-card">
         <img class="object-cover" src="images/{{ project.thumbnail }}" alt="Thumbnail for {{ project.name }}">
-      </div>
+      </a>
       <div class="project-button">
-        <a href="{{ project.url }}" class="p-3 rounded-lg bg-sky-700 text-white">Read&nbsp;More</a>
+        <a class="p-3 rounded-lg bg-sky-700 text-white">Read&nbsp;More</a>
       </div>
       <div class="p-5">
         <h3 class="text-2xl mb-2">
@@ -225,11 +225,12 @@
         ambient_animation.play();
         playing = false;
       });
-      card.addEventListener("touchstart", function() {
+      card.addEventListener("touchstart", function(e) {
         if (!playing) {
           ambient_animation.pause();
           animation.play();
           playing = true;
+          e.preventDefault(); // only link if card is open
         } else {
           animation.reverse();
           ambient_animation.play();
@@ -281,10 +282,6 @@
 </style>
 
 {#
-<section class="p-5 text-center">
-  <h2 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- About Me -</h2>
-  <p class="max-w-screen-md mx-auto">{{ index_info.about_me }}</p>
-</section>
 
 <section>
   <header class="p-5 text-center">
