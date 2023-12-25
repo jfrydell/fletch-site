@@ -12,9 +12,10 @@
         trigger: ".fade-center",
         scrub: true,
         pin: true,
-        start: "top 20%",
+        start: "top 30%",
         end: "top top",
       },
+      transform: "translateY(-50%)",
       opacity: 0
     });
 

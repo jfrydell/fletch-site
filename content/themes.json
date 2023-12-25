@@ -14,6 +14,11 @@
             "name": "Pure",
             "path": "pure",
             "description": "Even CSS is too much for you? Just the 'simple' HTML, but with none of those pesky stylesheets."
+        },
+        {
+            "name": "Fancy",
+            "path": "fancy",
+            "description": "Do you hate have sensible scrolling? Want to see useless animations constantly? This theme was put together with plenty of GSAP ScrollTrigger and a lot of poorly-written CSS and JavaScript. Have fun!"
         }
     ],
     "about_text": "To allow users to have the best browsing experience (read: because I have too much free time), I decided to create a few different versions of this site that you can choose from. All themes share the same content, they differ only in presentation. Your current theme is stored in a cookie, which is updated by specifying a \"version=VERSION\" query parameter in any url. Of course, all versions of the site require a web browser to access, so if you don't have that (well first of all, how'd you find this site?), feel free to just SSH into the server and read the files directly!"

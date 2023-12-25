@@ -22,7 +22,7 @@ impl Content {
     /// Renders the fancy HTML pages from the general content.
     pub fn new(content: &crate::Content) -> Result<Self> {
         // The template engine is the only thing that must be loaded for html-specific content, so load that first.
-        let tera = Tera::new("html-content/fancy/**/*.tera").expect("Failed to load templates");
+        let tera = Tera::new("html-content/fancy/**/*.tera")?;
 
         // To render the content, we just create an empty struct and call the refresh function with the content.
         let mut result = Self {
