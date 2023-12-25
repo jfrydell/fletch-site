@@ -14,6 +14,7 @@ use tower_http::services::ServeDir;
 use tracing::{debug, error, info, warn};
 
 mod defaulthtml;
+mod fancyhtml;
 mod simplehtml;
 
 /// Runs the HTML service, given a broadcast channel to notify it of content changes.
@@ -134,7 +135,8 @@ impl HtmlServer {
                 ),
             )
             .nest("/defaulthtml", defaulthtml::Content::router())
-            .nest("/simplehtml", simplehtml::Content::router());
+            .nest("/simplehtml", simplehtml::Content::router())
+            .nest("/fancyhtml", fancyhtml::Content::router());
         // Add websocket handler if live reload is enabled
         if crate::CONFIG.live_reload {
             router = router.route("/ws", get(Self::ws_handler));
@@ -161,6 +163,7 @@ impl HtmlServer {
             Some(HtmlVersion::DefaultHtml) => content.default.get_page(&page),
             Some(HtmlVersion::SimpleHtml) => content.simple.get_page(&page, false),
             Some(HtmlVersion::PureHtml) => content.simple.get_page(&page, true),
+            Some(HtmlVersion::FancyHtml) => content.fancy.get_page(&page),
             None => content.default.get_page(&page),
         };
 
@@ -305,6 +308,7 @@ where
 struct HtmlContent {
     pub default: defaulthtml::Content,
     pub simple: simplehtml::Content,
+    pub fancy: fancyhtml::Content,
 }
 
 impl HtmlContent {
@@ -313,6 +317,7 @@ impl HtmlContent {
         Ok(Self {
             default: defaulthtml::Content::new(content)?,
             simple: simplehtml::Content::new(content)?,
+            fancy: fancyhtml::Content::new(content)?,
         })
     }
 
@@ -321,6 +326,7 @@ impl HtmlContent {
     fn refresh(&mut self, content: &crate::Content) -> Result<()> {
         self.default.refresh(content)?;
         self.simple.refresh(content)?;
+        self.fancy.refresh(content)?;
         Ok(())
     }
 }
@@ -343,6 +349,8 @@ pub enum HtmlVersion {
     SimpleHtml,
     #[serde(rename = "pure")]
     PureHtml,
+    #[serde(rename = "fancy")]
+    FancyHtml,
 }
 impl ToString for HtmlVersion {
     fn to_string(&self) -> String {
@@ -350,6 +358,7 @@ impl ToString for HtmlVersion {
             Self::DefaultHtml => "default".to_string(),
             Self::SimpleHtml => "simple".to_string(),
             Self::PureHtml => "pure".to_string(),
+            Self::FancyHtml => "fancy".to_string(),
         }
     }
 }
@@ -361,6 +370,7 @@ impl std::str::FromStr for HtmlVersion {
             "default" => Ok(Self::DefaultHtml),
             "simple" => Ok(Self::SimpleHtml),
             "pure" => Ok(Self::PureHtml),
+            "fancy" => Ok(Self::FancyHtml),
             _ => Err(()),
         }
     }

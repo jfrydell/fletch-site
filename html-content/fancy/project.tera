@@ -1,0 +1,145 @@
+{% extends "base.tera" %}
+{% block title %}{{ project.name }} - {{ super() }}{% endblock title %}
+
+{% block head %}
+{{ super() }}
+<script>
+  function getAnimations(elem, direction) {
+    var x = (Math.random() * 200) - 100, y = Math.random() * 500;
+    elem.style.transform = "translate(" + x + "px, " + y + "px)";
+    elem.style.opacity = "0";
+    return [
+      () => {
+        gsap.fromTo(elem, {x: x, y: y, autoAlpha: 0}, {
+          duration: 1.25, 
+          x: 0,
+          y: 0, 
+          autoAlpha: 1, 
+          ease: "expo", 
+          overwrite: "auto"
+        })
+      },
+      () => {
+        gsap.fromTo(elem, {x: -x, y: -y, autoAlpha: 0}, {
+          duration: 1.25, 
+          x: 0,
+          y: 0, 
+          autoAlpha: 1, 
+          ease: "expo", 
+          overwrite: "auto"
+        })
+      }
+    ];
+  }
+  
+  function hide(elem) {
+    gsap.set(elem, {autoAlpha: 0});
+  }
+  
+  document.addEventListener("DOMContentLoaded", function() {
+    gsap.registerPlugin(ScrollTrigger);
+    
+    gsap.utils.toArray(".word").forEach(function(elem) {
+      hide(elem); // assure that the element is hidden when scrolled into view
+      let animations = getAnimations(elem);
+      ScrollTrigger.create({
+        trigger: elem,
+        markers: false,
+        onEnter: animations[0], 
+        onEnterBack: animations[1],
+        onLeave: function() { hide(elem) } // assure that the element is hidden when scrolled into view
+      });
+    });
+  });    
+</script>
+<style>
+  .word {
+    display: inline-block;}
+</style>
+{% endblock head %}
+
+{% block header_title %}{{ project.name }}{% endblock %}
+{% block header_subtitle %}{{ project.description }}{% endblock %}
+
+{% block content %}
+
+{% for section in project.content["$value"] %}
+{% if section.section %}
+{{ self::make_section(section=section.section) }}
+{% elif section.criteria %}
+{{ self::make_criteria(criteria=section.criteria) }}
+{% endif %}
+{% endfor %}
+
+{% endblock content %}
+
+{% macro make_section(section) %}
+{% set elements = section["$value"] %}
+<section
+  class="py-8 md:p-8 mx-12 max-w-screen-lg lg:mx-auto grid lg:grid-cols-{{ elements | length }} gap-4 leading-relaxed">
+  {% for element in elements %}
+  <div>
+    {% if loop.first %}
+    <h2 class="text-3xl mb-2 font-normal tracking-wider text-sky-600">
+      {{
+      section.title }}
+    </h2>
+    {% endif %}
+    {{ self::make_element(element = element) }}
+  </div>
+  {% endfor %}
+</section>
+{% endmacro %}
+
+{# Renders an `Element` enum as part of a section #}
+{% macro make_element(element) %}
+{% if element.g %}
+<div class="space-y-2">
+  {% for subelement in element.g["$value"] %}
+  {{ self::make_element(element = subelement) }}
+  {% endfor %}
+</div>
+{% elif element.p %}
+<p>{{ self::render_text(text = element.p) }}</p>
+{% elif element.img %}
+<div class="mx-auto w-2/3 max-w-md">
+  <img class="rounded-lg" src="/images/{{ element.img['@src'] }}" alt="{{ element.img['@alt'] }}">
+  {% if element.img.caption %}
+  <p class="text-center text-sm p-2 pb-0 italic">{{ self::render_text(text = element.img.caption) }}</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+
+{% macro make_criteria(criteria) %}
+<section
+  class="p-8 bg-slate-800 flex items-center justify-center flex-col lg:flex-row gap-6 lg:gap-12 lg:pr-16 xl:pr-32">
+  <div class="mt-8 lg:m-16 lg:w-36">
+    <h2 class="text-3xl text-sky-600 text-center font-bold lg:-rotate-45">{{ criteria.title }}
+    </h2>
+  </div>
+  {% set items = criteria["item"] %}
+  {% for item in items %}
+  <div class="text-white max-w-xl mx-6 lg:mx-0">
+    <h3 class="text-2xl text-center">{{item.title}}</h3>
+    <p class="text-sm text-center">{{ self::render_text(text = item.description) }}</p>
+  </div>
+  {%- endfor -%}
+</section>
+{%- endmacro -%}
+
+{# Renderes a `Text` struct, containing a `$value` array of `TextElement`s (text and links). #}
+{% macro render_text(text) %}
+{% for element in text["$value"] %}
+{% if element["$text"] %}
+{# Break text into pieces for scrolljacking #}
+{% for i in element["$text"] | split(pat=" ") %}
+<span class="word">{{ i }}</span>
+{% endfor %}
+{% elif element["a"] %}
+<a class="text-sky-500 hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500" href="{{ element.a['@href'] }}">{{
+  self::render_text(text = element["a"]) }}</a>
+{% endif %}
+{% endfor %}
+{% endmacro %}

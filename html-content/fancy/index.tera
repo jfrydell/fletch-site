@@ -1,0 +1,295 @@
+{% extends "base.tera" %}
+{% block title %} Home - {{ super() }}{% endblock title %}
+
+{% block head %}
+{{ super() }}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    gsap.registerPlugin(ScrollTrigger);
+
+    gsap.to(".fade-center", {
+      scrollTrigger: {
+        trigger: ".fade-center",
+        scrub: true,
+        pin: true,
+        start: "top 20%",
+        end: "top top",
+      },
+      opacity: 0
+    });
+
+    gsap.to(".stop-section", {
+      scrollTrigger: {
+        trigger: ".stop-section",
+        scrub: true,
+        start: "top 90%",
+        end: "top center"
+      },
+      opacity: 1.0,
+      startAt: {opacity: 0},
+    });
+    gsap.to(".stop-section", {
+      scrollTrigger: {
+        trigger: ".stop-section",
+        scrub: true,
+        pin: true,
+        start: "center center",
+        end: "bottom -100%",
+        toggleClass: "active",
+        ease: "power2"
+      }
+    });
+
+    gsap.to(".slow-scroll", {
+      scrollTrigger: {
+        trigger: ".stop-section",
+        scrub: 0.5,
+        start: "top bottom",
+        end: "bottom -300%",
+        ease: "power2"
+      },
+      y: "-30%"
+    });
+
+    let s1 = {
+      trigger: "#projects-head",
+      scrub: true,
+      start: "top bottom",
+      end: "top top",
+    };
+    gsap.fromTo("#projects-head>span", {opacity: 0}, {opacity: 1, scrollTrigger: s1});
+    gsap.timeline({scrollTrigger: s1})
+      .fromTo("#projects-head>span", {scale: 0}, {scale: 4, duration: 7})
+      .to("#projects-head>span", {scale: 1, duration: 3, ease: "power2"});
+    gsap.timeline({scrollTrigger: s1})
+      .to("#projects-head>span", {y: "10vh", duration: 7, ease: "power2"})
+      .to("#projects-head>span", {y: 0, duration: 3, ease: "power2"});
+    gsap.timeline({scrollTrigger: s1})
+      .to("#projects-head>span", {x: "25vw", rotation: 90})
+      .to("#projects-head>span", {x: "-25vw", rotation: 235})
+      .to("#projects-head>span", {x: 0, rotation: 360});
+  });
+</script>
+<style>
+  .section-title {
+    --padding: 1.5vmin;
+    --duration: 400ms;
+    --delay: calc(var(--duration) / 2);
+    --ease: cubic-bezier(0.25, 1, 0.5, 1);
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    margin-top: calc(var(--padding) * -1);
+    padding: var(--padding);
+ }
+  .section-title div {
+    content: "";
+    left: 0;
+    background-color: white;
+    width: 100%;
+    height: 1.0vmin;
+    transform: scaleX(0);
+    transition: transform var(--duration) var(--delay) var(--ease);
+ }
+  .section-title h2 {
+    display: block;
+    transform: translateY(110%);
+    transition: all var(--duration) var(--ease);
+    opacity: 0;
+ }
+ .section-title p {
+    padding-top: 10px;
+    max-width: 800px;
+    padding-left: 10px;
+    transform: translateY(-110%);
+    transition: all var(--duration) var(--ease);
+    opacity: 0;
+}
+  .active .section-title div {
+    transform: scaleX(1);
+    transition-delay: 0s;
+ }
+ .active .section-title p {
+  transform: translateY(0);
+  transition-delay: var(--delay);
+  opacity: 1;
+}
+  .active .section-title h2 {
+    transform: translateY(0);
+    transition-delay: var(--delay);
+    opacity: 1;
+ }
+</style>
+{% endblock head %}
+
+{% block header %}{% endblock header %}
+
+{% block content %}
+<header class="flex flex-col items-center justify-center w-full h-screen text-center">
+  <div class="fade-center">
+    <h1 class="text-6xl">Fletch Rydell</h1>
+    <nav class="flex items-center justify-center w-full h-16">
+      <a href="/" class="px-4">Home</a>
+      <a href="/#projects" class="px-4">Projects</a>
+      <a href="/themes" class="px-4">Change Theme</a>
+    </nav>
+  </div>
+</header>
+<section class="stop-section flex w-full h-screen text-center items-center justify-center">
+  <header class="flex relative w-screen max-h-screen overflow-hidden">
+    <div style="padding-bottom: 100%"></div>
+    <img class="absolute w-full object-cover slow-scroll" style="height: 200%" src="/images/fletchhead.jpg">
+    <div class="flex items-center justify-center">
+      <div class="section-title">
+        <h2 class="text-8xl font-black pb-4">About Me</h2>
+        <div></div>
+        <p>{{ index_info.about_me }}</p></p>
+      </div>
+    </div>
+  </header>
+</section>
+<section id="projects" class="min-h-screen">
+  <h2 class="text-center text-3xl pt-4" id="projects-head"><span class="inline-block">Projects</span></h2>
+  <ul>
+    {% for project in projects %}
+    <li class="py-4 clear-both">
+      <a href="projects/{{ project.url }}" class="project-card">
+        <img class="object-cover" src="images/{{ project.thumbnail }}" alt="Thumbnail for {{ project.name }}">
+      </a>
+      <div class="project-button">
+        <a class="p-3 rounded-lg bg-sky-700 text-white">Read&nbsp;More</a>
+      </div>
+      <div class="p-5">
+        <h3 class="text-2xl mb-2">
+          {{ project.name }}
+        </h3>
+        <p>{{ project.description }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    let card_num = 0;
+    for (card of document.getElementsByClassName("project-card")) {
+      let prevCard = card.firstElementChild;
+      // Construct card
+      let url = prevCard.src;
+      let outerCard = document.createElement("div");
+      outerCard.id = `project-card-${card_num}`;
+      let currentCard = outerCard;
+      for (let i = 0; i < 30; i++) {
+        let span = document.createElement("span");
+        span.style.backgroundImage = `url(${url})`;
+        span.style.backgroundPosition = `0 -${i * 10}px`;
+        currentCard.appendChild(span);
+        let spanBack = document.createElement("span");
+        spanBack.style.backgroundColor = "#333";
+        spanBack.style.transform = "rotateX(180deg) translateY(-100%) translateZ(1px)";
+        spanBack.style.height = "11px";
+        currentCard.appendChild(spanBack);
+        let newCard = document.createElement("div");
+        currentCard.appendChild(newCard);
+        currentCard = newCard;
+      }
+      // Replace image
+      card.replaceChild(outerCard, prevCard);
+
+      // Animate card
+      let animation = gsap.to(`#project-card-${card_num} div`, {
+        rotationX: 5,
+        duration: 0.4,
+        ease: "back.inOut(1.5)",
+        paused: true
+      });
+      let ambient_animation = gsap.to(`#project-card-${card_num} div`, {
+        startAt: {rotationX: 0.2},
+        rotationX: -0.4,
+        duration: 2,
+        yoyo: true,
+        ease: "sine.inOut",
+        repeat: -1,
+      });
+      let button = card.nextElementSibling;
+
+      // Mouse/Touch support
+      let playing = false;
+      card.addEventListener("mouseenter", function() {
+        ambient_animation.pause();
+        animation.play();
+        playing = true;
+      });
+      card.addEventListener("mouseleave", function() {
+        animation.reverse();
+        ambient_animation.play();
+        playing = false;
+      });
+      card.addEventListener("touchstart", function(e) {
+        if (!playing) {
+          ambient_animation.pause();
+          animation.play();
+          playing = true;
+          e.preventDefault(); // only link if card is open
+        } else {
+          animation.reverse();
+          ambient_animation.play();
+          playing = false;
+        }
+      });
+      card_num++;
+    }
+  });
+</script>
+<style>
+  .project-card {
+    display: block;
+    float: left;
+    transform: perspective(800px) rotateY(30deg);
+    transform-style: preserve-3d;
+    width: 300px;
+    height: 300px;
+  }
+  .project-card div {
+    position: absolute;
+    transform: rotateX(0deg);
+    transform-style: preserve-3d;
+    top: 10px;
+    pointer-events: none;
+  }
+  .project-card span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 300px;
+    height: 10px;
+    transform-origin: 0 0;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    background-size: auto 300px;
+    background-repeat: no-repeat;
+  }
+  .project-button {
+    position: absolute;
+    z-index: -1;
+  }
+  .project-button>a {
+    position: absolute;
+    top: 180px;
+    left: 150px;
+    transform: translate(-50%, -50%);
+  }
+</style>
+
+{#
+
+<section>
+  <header class="p-5 text-center">
+    <h2 class="italic text-2xl tracking-wide p-2 text-sky-600 dark:text-sky-500">- Projects -</h2>
+    <p>{{ index_info.projects_caption }}</p>
+  </header>
+  
+</section>
+#}
+
+{% endblock content %}
