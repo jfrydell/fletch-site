@@ -140,7 +140,7 @@
   <header class="flex relative w-screen max-h-screen overflow-hidden">
     <div style="padding-bottom: 100%"></div>
     <img class="absolute w-full object-cover slow-scroll" style="height: 200%" src="/images/fletchhead.jpg">
-    <div class="flex items-center justify-center">
+    <div class="flex items-center justify-center w-full">
       <div class="section-title">
         <h2 class="text-8xl font-black pb-4">About Me</h2>
         <div></div>
