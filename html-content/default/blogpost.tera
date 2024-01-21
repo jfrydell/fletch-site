@@ -22,11 +22,13 @@
 {%- for element in content -%}
 {%- if element["$text"] -%}
 {{ element["$text"]|linebreaksbr|safe }}
+{%- elif element["img"] -%}
+<img class="block my-4 mx-auto" src="/images/{{ element['img']['@src'] }}" />
 {%- elif element["a"] -%}
 {{ element.a['@lead'] }}<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400" href="{{ element.a['@href'] }}">{{
   self::render(content = element.a["$value"]) }}</a>{{ element.a['@trail'] }}
 {%- elif element["c"] -%}
-{{ element.c['@lead'] }}<code>{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
+{{ element.c['@lead'] }}<code class="bg-zinc-700">{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
 
 {%- endif -%}
 {%- endfor -%}

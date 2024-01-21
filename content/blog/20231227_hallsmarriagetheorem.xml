@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Hall's Marriage Theorem</title>
+<url>hallsmarriage</url>
+<date>2023-12-27T18:00:00</date>
+<visibility>0</visibility>
+<tag>note</tag>
+<content>
+[Hall's Marriage Theorem](https://en.wikipedia.org/wiki/Hall's_marriage_theorem) is a statement about [bipartite graphs](https://en.wikipedia.org/wiki/Bipartite_graph) (i.e. graphs with two sets of vertices where each edge goes from one set to the other), providing a necessary and sufficient condition for the graph to have a "matching" between the two sets: a subset of edges forming a bijection between the two sets.
+
+Hall's Theorem states that a matching exists if and only if for every subset of vertices in one set, the number of connected vertices in the other set is at least as large as
+</content>
+</blogpost>

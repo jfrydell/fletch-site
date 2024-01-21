@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Matching C Block Comments With Regular Expressions</title>
+<url>regexcomments</url>
+<date>2024-01-19T18:00:00</date>
+<visibility>0</visibility>
+<content>
+An interesting problem was presented during my [Compilers Class](https://adhilton.pratt.duke.edu/teaching/ece-553) yesterday: write a regular expression that matches all valid C-style block comments but no other strings. To avoid extra escaping, we'll consider an alternative comment syntax with `/` replaced with `l` and `*` replaced with `x`: (`lx this is a comment xl` matches but `lx this isn't xlxl` doesn't).
+
+My first attempt's logic was to match a comment beginning (`lx`) followed by anything except `xl` any number of times and finally `xl`. Inverting `xl` gives the regex `[^x]|x[^l]`, for the complete regex `lx([^x]|x[^l])*xl`. Unfortunately, this fails to match `lxxxl` (or `/***/` in C syntax).
+
+The most obvious fix for this is `lx([^x]|x[^l])*x+l`, which (I believe) does correctly match all valid C comments. However, it also matches the string `lxxxlxl` (C syntax `/***/*/`), which is not a C comment on its own. This is ultimately due to the structure of the regex, with the `(x[^l])` term consuming the character after the `x`.
+
+Doing this correctly is non-obvious, and is better thought about as a state machine / [deterministic finite automata](https://en.wikipedia.org/wiki/Deterministic_finite_automaton). Thinking about it like this, we first need to match `lx`, and from there can match any character but `x` while remaining in the same state. On an `x`, we transition to a new state, from which `x` remains in the same state, `l` finishes the comment (and any following characters should be cause the string to be rejected), and anything else moves back to the previous state.
+<!-- DIAGRAM
+<svg height="500" width="900">
+  <defs>
+    <marker 
+      id='head' 
+      orient="auto" 
+      markerWidth='3' 
+      markerHeight='4' 
+      refX='0.1' 
+      refY='2'
+    >
+      <path d='M0,0 V4 L2,2 Z' fill="black" />
+    </marker>
+  </defs>
+<g stroke="black" stroke-width="3" fill="none">
+<path d="M 250 200 q -50 -100 50 -100 q 100 0 50 100" marker-end="url(#head)" />
+<path d="M 450 200 q -50 -100 50 -100 q 100 0 50 100" marker-end="url(#head)" />
+<path d="M 155 225 l 85 0" marker-end="url(#head)" />
+<path d="M 355 225 l 85 0" marker-end="url(#head)" />
+<path d="M 445 275 l -85 0" marker-end="url(#head)" />
+<path d="M 555 225 l 85 0" marker-end="url(#head)" />
+</g>
+
+  <g stroke="black" stroke-width="3">
+    <circle id="circA" cx="100" cy="250" r="50" stroke="black" fill="none" />
+    <circle id="circB" cx="300" cy="250" r="50" stroke="black" fill="none" />
+    <circle id="circC" cx="500" cy="250" r="50" stroke="black" fill="none" />
+    <circle id="circD" cx="700" cy="250" r="50" stroke="black" fill="none" />
+  </g>
+  <g font-size="18" font-family="sans-serif" fill="black" stroke="none" text-anchor="middle">
+    <text x="200" y="220">lx</text>
+    <text x="400" y="220">x</text>
+    <text x="600" y="220">l</text>
+    
+    <text x="300" y="90">[^x]</text>
+    <text x="500" y="90">x</text>
+    
+    <text x="400" y="300">[^xl]</text>
+  </g>
+  Sorry, your browser does not support inline SVG.
+</svg>
+-->
+<img src="commentregexdfa.svg" />
+
+To turn this into a regex, we can start by removing the second state. The transition from first to third is now `lx[^x]*x` (just the transition in, followed by zero or more transitions back to itself, and the transition out) and from third to third is `x|[^xl][^x]*x` (because either the new or old can be taken). Now, this can be repeated any number of times between the two forward transitions to obtain the regex `lx[^x]*x(x|[^xl][^x]*x)*l`, which correctly matches comments.
+
+UPDATE: Reducing about the third state instead of the second gives `lx([^x]|x+[^xl])*x+l` after a bit of simplification, which is far more intuitive to me, more similar to my initial guess.
+</content>
+</blogpost>

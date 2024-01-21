@@ -11,6 +11,8 @@ pub struct BlogPost {
     pub url: String,
     pub date: NaiveDateTime,
     pub visibility: i32,
+    #[serde(default, rename = "tag")]
+    pub tags: Vec<Tag>,
 
     #[serde(deserialize_with = "deserialize_content")]
     pub content: Content,
@@ -64,7 +66,7 @@ where
     })
 }
 
-/// Expands out any shorthand in the given `Element`s.
+/// Expands out any shorthand in the given `Element`s, returning `true` if shorthand was expanded. Terrible algorithm, but too lazy for an actual lexer or regex or whatever.
 fn expand_shorthand(elements: &mut Vec<Element>) -> Result<()> {
     let mut element_i = 0;
     while element_i < elements.len() {
@@ -73,8 +75,28 @@ fn expand_shorthand(elements: &mut Vec<Element>) -> Result<()> {
             let Element::Text(text) = &mut elements[element_i] else {
                 unreachable!()
             };
-            // Link shorthand (TODO: use regex so [ is allowed in text)
-            if let Some(i) = text.find('[') {
+            // Code and link shorthand (TODO: use regex so [ is allowed in text, already a hack to have code before link to let [ in code)
+            if let Some(i) = text.find('`') {
+                let code_and_rest = &text[i + 1..];
+                let code_end = code_and_rest
+                    .find('`')
+                    .ok_or(eyre!("No ` closing inline code"))?;
+                let code = &code_and_rest[..code_end];
+
+                // Construct new elements
+                let code = Element::InlineCode {
+                    lang: None,
+                    leading_space: String::new(),
+                    trailing_space: String::new(),
+                    text: code.to_owned(),
+                };
+                let rest = Element::Text(code_and_rest[code_end + 1..].to_string());
+
+                // Construct subsequent text and truncate
+                text.truncate(i);
+                elements.insert(element_i + 1, code);
+                elements.insert(element_i + 2, rest);
+            } else if let Some(i) = text.find('[') {
                 // Grab link and the rest of the text for processing
                 let link_and_rest = &text[i..];
 
@@ -101,23 +123,35 @@ fn expand_shorthand(elements: &mut Vec<Element>) -> Result<()> {
                 text.truncate(i);
                 elements.insert(element_i + 1, link);
                 elements.insert(element_i + 2, rest);
+            } else {
+                // No match, move to next element
+                element_i += 1;
             }
+        } else {
+            // Recursive descent into any elements containing text
+            match &mut elements[element_i] {
+                Element::Link { ref mut text, .. } => expand_shorthand(text)?,
+                Element::Footnote {
+                    ref mut content, ..
+                } => expand_shorthand(content)?,
+                Element::Text(..) => {}
+                Element::Code { .. } => {}
+                Element::InlineCode { .. } => {}
+                Element::FootnoteRef { .. } => {}
+                Element::Image { .. } => {}
+            };
+            element_i += 1;
         }
-
-        // Recursive descent into any elements containing text
-        match &mut elements[element_i] {
-            Element::Link { ref mut text, .. } => expand_shorthand(text)?,
-            Element::Footnote {
-                ref mut content, ..
-            } => expand_shorthand(content)?,
-            Element::Text(..) => {}
-            Element::Code { .. } => {}
-            Element::InlineCode { .. } => {}
-            Element::FootnoteRef { .. } => {}
-        };
-        element_i += 1;
     }
     Ok(())
+}
+
+/// Possible tags for a blog post.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "lowercase", tag = "$text")]
+pub enum Tag {
+    /// A notes post, with a disclaimer at the top.
+    Note,
 }
 
 /// A single element of content, such as a `Group` of other elements or a `Paragraph` of text.
@@ -168,6 +202,12 @@ pub enum Element {
         reference: String,
         #[serde(rename = "$value")]
         content: Vec<Element>,
+    },
+    /// Embedded image
+    #[serde(rename = "img")]
+    Image {
+        #[serde(rename = "@src")]
+        src: String,
     },
     #[serde(rename = "$text")]
     Text(String),

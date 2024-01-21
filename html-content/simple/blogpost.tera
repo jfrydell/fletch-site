@@ -22,12 +22,13 @@
 {%- for element in content -%}
 {%- if element["$text"] -%}
 {{ element["$text"]|linebreaksbr|safe }}
+{%- elif element["img"] -%}
+<img src="/images/{{ element.img['@src'] }}" class="padded-img" />
 {%- elif element["a"] -%}
 {{ element.a['@lead'] }}<a href="{{ element.a['@href'] }}">{{
   self::render(content = element.a["$value"]) }}</a>{{ element.a['@trail'] }}
 {%- elif element["c"] -%}
 {{ element.c['@lead'] }}<code>{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
-
 {%- endif -%}
 {%- endfor -%}
 {% endmacro %}

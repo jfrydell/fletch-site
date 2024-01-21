@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" height="450" width="850" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <defs>
+    <marker 
+      id='head' 
+      orient="auto" 
+      markerWidth='3' 
+      markerHeight='4' 
+      refX='0.1' 
+      refY='2'
+    >
+      <path d='M0,0 V4 L2,2 Z' fill="black" />
+    </marker>
+  </defs>
+
+<rect width="100%" height="100%" fill="white" />
+
+<g stroke="black" stroke-width="3" fill="none">
+<path d="M 250 200 q -50 -100 50 -100 q 100 0 50 100" marker-end="url(#head)" />
+<path d="M 450 200 q -50 -100 50 -100 q 100 0 50 100" marker-end="url(#head)" />
+<path d="M 155 225 l 85 0" marker-end="url(#head)" />
+<path d="M 355 225 l 85 0" marker-end="url(#head)" />
+<path d="M 445 275 l -85 0" marker-end="url(#head)" />
+<path d="M 555 225 l 85 0" marker-end="url(#head)" />
+</g>
+
+  <g stroke="black" stroke-width="3">
+    <circle id="circA" cx="100" cy="250" r="50" stroke="black" fill="none" />
+    <circle id="circB" cx="300" cy="250" r="50" stroke="black" fill="none" />
+    <circle id="circC" cx="500" cy="250" r="50" stroke="black" fill="none" />
+    <circle id="circD" cx="700" cy="250" r="50" stroke="black" fill="none" />
+  </g>
+  <g font-size="18" font-family="sans-serif" fill="black" stroke="none" text-anchor="middle">
+    <text x="200" y="220">lx</text>
+    <text x="400" y="220">x</text>
+    <text x="600" y="220">l</text>
+    
+    <text x="300" y="90">[^x]</text>
+    <text x="500" y="90">x</text>
+    
+    <text x="400" y="300">[^xl]</text>
+  </g>
+</svg>

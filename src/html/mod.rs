@@ -166,6 +166,20 @@ impl HtmlServer {
             Some(HtmlVersion::FancyHtml) => content.fancy.get_page(&page),
             None => content.default.get_page(&page),
         };
+        // If the desired version doesn't have the page, try the default version but log error
+        let response_body = match response_body {
+            Some(response_body) => Some(response_body),
+            None => match version {
+                Some(HtmlVersion::DefaultHtml) => None,
+                _ => match content.default.get_page(&page) {
+                    Some(response_body) => {
+                        error!("Desired version {version:?} missing page {page:?}, falling back to default version");
+                        Some(response_body)
+                    }
+                    None => None,
+                },
+            },
+        };
 
         // Serve page if possible, otherwise 404
         match response_body {

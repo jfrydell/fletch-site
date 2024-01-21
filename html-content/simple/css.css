@@ -105,6 +105,13 @@ section {
     }
 }
 
+.padded-img {
+    padding: 1em 0em;
+    display: block;
+    margin: auto;
+    max-width: 90vw;
+}
+
 img {
     object-fit: cover;
 }
@@ -146,4 +153,8 @@ img {
     max-width: 720px;
     flex-basis: 360px;
     flex-grow: 1;
+}
+
+code {
+    background-color: #333;
 }
