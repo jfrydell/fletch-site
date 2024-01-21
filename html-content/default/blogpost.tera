@@ -28,7 +28,7 @@
 {{ element.a['@lead'] }}<a class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400 visited:text-purple-600 hover:visited:text-purple-500 dark:visited:text-purple-400" href="{{ element.a['@href'] }}">{{
   self::render(content = element.a["$value"]) }}</a>{{ element.a['@trail'] }}
 {%- elif element["c"] -%}
-{{ element.c['@lead'] }}<code class="bg-zinc-700">{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
+{{ element.c['@lead'] }}<code class="bg-zinc-200 dark:bg-zinc-700">{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
 
 {%- endif -%}
 {%- endfor -%}
