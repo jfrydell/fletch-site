@@ -3,7 +3,7 @@
 <title>Matching C Block Comments With Regular Expressions</title>
 <url>regexcomments</url>
 <date>2024-01-19T18:00:00</date>
-<visibility>0</visibility>
+<visibility>1</visibility>
 <content>
 An interesting problem was presented during my [Compilers Class](https://adhilton.pratt.duke.edu/teaching/ece-553) yesterday: write a regular expression that matches all valid C-style block comments but no other strings. To avoid extra escaping, we'll consider an alternative comment syntax with `/` replaced with `l` and `*` replaced with `x`: (`lx this is a comment xl` matches but `lx this isn't xlxl` doesn't).
 
@@ -15,12 +15,12 @@ Doing this correctly is non-obvious, and is better thought about as a state mach
 <!-- DIAGRAM
 <svg height="500" width="900">
   <defs>
-    <marker 
-      id='head' 
-      orient="auto" 
-      markerWidth='3' 
-      markerHeight='4' 
-      refX='0.1' 
+    <marker
+      id='head'
+      orient="auto"
+      markerWidth='3'
+      markerHeight='4'
+      refX='0.1'
       refY='2'
     >
       <path d='M0,0 V4 L2,2 Z' fill="black" />
@@ -45,10 +45,10 @@ Doing this correctly is non-obvious, and is better thought about as a state mach
     <text x="200" y="220">lx</text>
     <text x="400" y="220">x</text>
     <text x="600" y="220">l</text>
-    
+
     <text x="300" y="90">[^x]</text>
     <text x="500" y="90">x</text>
-    
+
     <text x="400" y="300">[^xl]</text>
   </g>
   Sorry, your browser does not support inline SVG.
