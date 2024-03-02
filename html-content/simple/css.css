@@ -1,11 +1,15 @@
 body {
-    background-color: #101216;
+    background-color: #101010;
     color: #e0eeee;
-    font-family: monaco, Consolas, Lucida Console, monospace;
+    font-family:
+        monaco,
+        Consolas,
+        Lucida Console,
+        monospace;
     line-height: 1.4;
 }
 
-body>header {
+body > header {
     text-align: center;
     margin-top: 2em;
 }
@@ -20,7 +24,7 @@ p {
     margin: 0.1em;
 }
 
-p+p {
+p + p {
     margin-top: 1em;
 }
 
@@ -80,11 +84,11 @@ section {
     border-radius: 1em;
 }
 
-.project-info>h3 {
+.project-info > h3 {
     font-size: 1.2em;
 }
 
-.project-info>* {
+.project-info > * {
     margin: 0.75em 1.5em;
 }
 
@@ -96,11 +100,11 @@ section {
         border-radius: 0.5em;
     }
 
-    .project-info>h3 {
+    .project-info > h3 {
         font-size: 1em;
     }
 
-    .project-info>* {
+    .project-info > * {
         margin: 0.5em;
     }
 }
@@ -134,11 +138,11 @@ img {
     width: 90%;
 }
 
-.bigitem-list>li {
+.bigitem-list > li {
     margin: 1.5em;
 }
 
-.bigitem-list>li>* {
+.bigitem-list > li > * {
     margin: 0.1em;
 }
 
@@ -149,7 +153,7 @@ img {
     justify-content: space-around;
 }
 
-.gallery>* {
+.gallery > * {
     max-width: 720px;
     flex-basis: 360px;
     flex-grow: 1;
