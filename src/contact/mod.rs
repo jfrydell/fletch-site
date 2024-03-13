@@ -2,6 +2,8 @@ use std::{convert::Infallible, net::SocketAddr, sync::Mutex};
 
 use color_eyre::Result;
 
+use rusqlite::{OptionalExtension, TransactionBehavior};
+use serde::Serialize;
 use tokio_rusqlite::Connection;
 use tracing::error;
 type SqlResult<T> = rusqlite::Result<T>;
@@ -56,99 +58,241 @@ pub async fn main() -> Result<Infallible> {
     })
     .await?;
 
-    // Set `CONN`, making copy so we still hold `conn` locally.
-    *CONN.lock().expect("poison") = Some(conn.clone());
-
-    // test
-    for i in 0..10 {
-        dbg!(create_thread(SocketAddr::from(([127, 0, 0, 1], 1)), format!("test {i}")).await);
+    // Set `CONN` and make guard to unset/drop when cancelled (TODO: is this pointless? connection closed when file descriptor drops at process exit anyway? and not sure if dropping connection actually does anything either, despite docs claiming it does? ideally would close connection in thread, but tokio_rusqlite doesn't support).
+    *CONN.lock().expect("poison") = Some(conn);
+    struct Guard;
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            CONN.lock().expect("poison").take();
+        }
     }
-    for i in 0..10 {
-        dbg!(create_thread(SocketAddr::from(([127, 0, 0, 2], 1)), format!("test {i}")).await);
-    }
-
+    let _guard = Guard;
     Ok(futures::future::pending().await)
+}
+
+/// A wrapper for a thread ID, represented internally (for Sqlite) as an `i64`.
+#[derive(Clone, Copy, Debug)]
+pub struct ThreadId(i64);
+impl From<u64> for ThreadId {
+    fn from(value: u64) -> Self {
+        Self(value as i64)
+    }
+}
+impl From<ThreadId> for u64 {
+    fn from(value: ThreadId) -> Self {
+        value.0 as u64
+    }
+}
+
+/// Represents a single message, including its contents, (unix) timestamp, and whether it was a response (from me; non-responses are from users).
+#[derive(Clone, Debug, Serialize)]
+pub struct Message {
+    contents: String,
+    timestamp: i64,
+    response: bool,
+}
+
+/// Possible errors occurring when retrieving a thread's messages.
+#[derive(Debug)]
+pub enum MessagesLoadError {
+    /// An internal error occured with a database query and was logged internally.
+    DatabaseError,
+    /// Tried to load a thread that doesn't exist.
+    NoSuchThread,
+}
+
+/// Gets all messages on the given thread.
+pub async fn get_messages(thread: ThreadId) -> Result<Vec<Message>, MessagesLoadError> {
+    // Get connection and run rest of function in Sqlite thread
+    let conn = CONN
+        .lock()
+        .expect("poison")
+        .clone()
+        .ok_or(MessagesLoadError::DatabaseError)?;
+    conn
+        .call(move |conn| {
+            let tx = conn.transaction()?;
+
+            // Check thread exists
+            if tx.query_row(
+                "SELECT COUNT(*) FROM threads WHERE id = ?1;",
+                [thread.0],
+                |row| row.get::<_, i32>(0),
+            )? == 0
+            {
+                return Ok(Err(MessagesLoadError::NoSuchThread));
+            }
+
+            // Load messages
+            let result: Vec<_> = tx.prepare_cached("SELECT contents, response, time FROM messages WHERE thread = ?1 ORDER BY time ASC;")?
+                .query_map([thread.0], |row|
+                    Ok(Message{
+                        contents: row.get(0)?,
+                        response: row.get(1)?,
+                        timestamp: row.get(2)?,
+                    })
+                )?
+                .collect::<Result<Vec<Message>,_>>()?;
+
+            // Commit transaction and return results
+            tx.commit()?;
+            Ok(Ok(result))
+        })
+        .await
+        .unwrap_or_else(|err| {
+            error!("Database error on thread retrieval: {err}");
+            Err(MessagesLoadError::DatabaseError)
+        })
 }
 
 /// Possible errors that can occur while sending a message or thread.
 #[derive(Debug)]
-pub enum MessageError {
+pub enum MessageSendError {
     /// An internal error occured with a database query and was logged internally.
     DatabaseError,
-    /// The message is too large, exceeding `CONFIG.msg_max_size`
+    /// The message is too large, exceeding `CONFIG.msg_max_size`.
     TooLong,
     /// The thread already contains too many messages without a reply, exceeding `CONFIG.msg_max_unread_messages`.
     ThreadFull,
     /// There are too many unread threads in my inbox, so rate limiting is in effect. This may be due to the sending IP exceeding `CONFIG.msg_max_unread_threads_ip`, or all users exceeding `CONFIG.msg_max_unread_threads_global`.
     InboxFull,
+    /// Tried to send a message on a thread that doesn't exist.
+    NoSuchThread,
 }
 
-pub async fn create_thread(ip: SocketAddr, first_message: String) -> Result<i64, MessageError> {
+/// Creates a new thread of messages starting with the given one, returning the thread ID on success. Errors on database issues, a message exceeding the max size, or too many unresponded threads (globally or for the IP).
+pub async fn create_thread(
+    ip: SocketAddr,
+    first_message: String,
+) -> Result<ThreadId, MessageSendError> {
     // Get connection
     let conn = CONN
         .lock()
         .expect("poison")
         .clone()
-        .ok_or(MessageError::DatabaseError)?;
+        .ok_or(MessageSendError::DatabaseError)?;
 
     // Check message size
     if first_message.chars().count() > crate::CONFIG.msg_max_size {
-        return Err(MessageError::TooLong);
+        return Err(MessageSendError::TooLong);
     }
 
-    // Rest of action is single transaction updating database, just send entire thing to background thread (could separately begin transaction, check validity, and write, but silly to do here since only have one connection anyway and if Sqlite is bottleneck have more to think about)
+    // Normalize IP string representation
+    let ip = ip.to_string();
+
+    // Rest of action is single transaction updating database, just send entire thing to background thread (could separately begin transaction, check validity, and write, but silly to do here since only have one connection anyway and if Sqlite is bottleneck have more to think about).
+    // TODO: doing everything at once atomically ensures only one transaction at a time, but if we don't, we need to consider concurrent writers, as our writes start out as read transactions due to validity check (UPDATE: added behavior mode immediate to fix)
     conn.call(move |conn| {
-        // Start transaction
-        let tx = conn.transaction()?;
+        // Start write transaction
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
         // Check number of unread messages globally and per IP, returning error (but not database error) if checks fail
         if let Err(e) = check_unread_thread_count(&tx)? {
             return Ok(Err(e));
         }
-        if let Err(e) = check_unread_thread_count_ip(&tx, ip)? {
+        if let Err(e) = check_unread_thread_count_ip(&tx, &ip)? {
             return Ok(Err(e));
         }
 
         // Generate random ID for thread
-        let thread_id: i64 = rand::random();
+        let thread_id = ThreadId(rand::random());
 
         // Create thread and add message
         tx.execute(
             "INSERT INTO threads (id, source_ip) VALUES (?1, ?2);",
-            (thread_id, ip.to_string()),
+            (thread_id.0, ip),
         )?;
         add_message(&tx, thread_id, first_message)?;
 
         // Commit transaction if no errors occurred (will rollback if thread count checks fail in addition to on database errors, which is fine as we haven't written and don't want to write)
         tx.commit()?;
 
-        // Return thread ID if everything was successful (no database error, no `MessageError`)
+        // Return thread ID if everything was successful (no database error, no `MessageSendError`)
         Ok(Ok(thread_id))
     })
     .await
     .unwrap_or_else(|err| {
         error!("Database error on thread creation: {err}");
-        Err(MessageError::DatabaseError)
+        Err(MessageSendError::DatabaseError)
+    })
+}
+
+/// Sends a message on the given thread. Errors on database issues or rate limiting as described by `MessageSendError` variants.
+pub async fn send_message(thread_id: ThreadId, message: String) -> Result<(), MessageSendError> {
+    // Get connection
+    let conn = CONN
+        .lock()
+        .expect("poison")
+        .clone()
+        .ok_or(MessageSendError::DatabaseError)?;
+
+    // Check message size
+    if message.chars().count() > crate::CONFIG.msg_max_size {
+        return Err(MessageSendError::TooLong);
+    }
+
+    // Rest of action is single transaction updating database, just send entire thing to background thread as in `create_thread`
+    conn.call(move |conn| {
+        // Start write transaction
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+        // Check number of unread messages on this thread, verifying thread exists in the process and getting IP for next check
+        let ip: String = match tx
+            .query_row(
+                "SELECT unread, source_ip FROM threads WHERE (id = ?1);",
+                [thread_id.0],
+                |row| Ok((row.get::<_, usize>(0)?, row.get(1)?)),
+            )
+            .optional()?
+        {
+            None => return Ok(Err(MessageSendError::NoSuchThread)),
+            Some((c, _)) if c >= crate::CONFIG.msg_max_unread_messages => {
+                return Ok(Err(MessageSendError::ThreadFull))
+            }
+            Some((_, ip)) => ip,
+        };
+
+        // Check number of unread messages globally and per IP, returning error (but not database error) if checks fail
+        if let Err(e) = check_unread_thread_count(&tx)? {
+            return Ok(Err(e));
+        }
+        if let Err(e) = check_unread_thread_count_ip(&tx, &ip)? {
+            return Ok(Err(e));
+        }
+
+        // Actually send message
+        add_message(&tx, thread_id, message)?;
+
+        // Commit transaction if no errors occurred (will rollback if thread count checks fail in addition to on database errors, which is fine as we haven't written and don't want to write)
+        tx.commit()?;
+
+        // Return no database error and no `MessageSendError` for successful send
+        Ok(Ok(()))
+    })
+    .await
+    .unwrap_or_else(|err| {
+        error!("Database error on thread creation: {err}");
+        Err(MessageSendError::DatabaseError)
     })
 }
 
 /// Adds a message to the given thread (always setting `response = 0` and the time to Sqlite's current time), not checking any constraints.
 ///
 /// Like all utilities that follow, this is a non-`async` method to run on `rusqlite::Connection`s within closures sent via `tokio_rusqlite`, rather than sending such a closure via the async interface within this function.
-fn add_message(conn: &rusqlite::Connection, thread_id: i64, message: String) -> SqlResult<()> {
+fn add_message(conn: &rusqlite::Connection, thread_id: ThreadId, message: String) -> SqlResult<()> {
     conn.execute(
         "INSERT INTO messages (thread, contents, response, time) VALUES (?1, ?2, 0, unixepoch())",
-        (thread_id, message),
+        (thread_id.0, message),
     )
     .map(|_| ())
 }
 
-/// Gets the number of threads with unread messages, checking if we've exceeded `CONFIG.msg_max_unread_threads_global`. Returns `Ok(count)` if the count is within the allowed range, and `Err(MessageError::InboxFull)` otherwise.
+/// Gets the number of threads with unread messages, checking if we've exceeded `CONFIG.msg_max_unread_threads_global`. Returns `Ok(count)` if the count is within the allowed range, and `Err(MessageSendError::InboxFull)` otherwise.
 ///
 /// This should be done in a transaction to avoid TOCTOU races.
 fn check_unread_thread_count(
     conn: &rusqlite::Connection,
-) -> SqlResult<Result<usize, MessageError>> {
+) -> SqlResult<Result<usize, MessageSendError>> {
     // Get count from database connection
     let count: usize = conn.query_row(
         "SELECT COUNT(*) FROM threads WHERE (unread > 0);",
@@ -157,17 +301,17 @@ fn check_unread_thread_count(
     )?;
     // Check count is under max
     Ok(if count >= crate::CONFIG.msg_max_unread_threads_global {
-        Err(MessageError::InboxFull)
+        Err(MessageSendError::InboxFull)
     } else {
         Ok(count)
     })
 }
 
-/// Gets the number of threads with unread messages for the given IP, checking if we've exceeded `CONFIG.msg_max_unread_threads_ip`. Returns `Ok(count)` if the count is within the allowed range, and `Err(MessageError::InboxFull)` otherwise (using the same error type to keep rate limiting somewhat opaque to user, especially as other users on IP could clog connection).
+/// Gets the number of threads with unread messages for the given IP, checking if we've exceeded `CONFIG.msg_max_unread_threads_ip`. Returns `Ok(count)` if the count is within the allowed range, and `Err(MessageSendError::InboxFull)` otherwise (using the same error type to keep rate limiting somewhat opaque to user, especially as other users on IP could clog connection).
 fn check_unread_thread_count_ip(
     conn: &rusqlite::Connection,
-    ip: SocketAddr,
-) -> SqlResult<Result<usize, MessageError>> {
+    ip: &str,
+) -> SqlResult<Result<usize, MessageSendError>> {
     // Get count from database connection
     let count: usize = conn.query_row(
         "SELECT COUNT(*) FROM threads WHERE (unread > 0 AND source_ip = ?1);",
@@ -176,7 +320,7 @@ fn check_unread_thread_count_ip(
     )?;
     // Check count is under max
     Ok(if count >= crate::CONFIG.msg_max_unread_threads_ip {
-        Err(MessageError::InboxFull)
+        Err(MessageSendError::InboxFull)
     } else {
         Ok(count)
     })
