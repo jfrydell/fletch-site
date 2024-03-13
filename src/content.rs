@@ -83,7 +83,8 @@ impl Content {
                 blog_posts.push(blog_post);
             }
         }
-        blog_posts.sort_by_key(|p| -p.date.timestamp());
+        blog_posts.sort_unstable_by_key(|p| p.date);
+        blog_posts.reverse();
 
         // If we disabled hidden blog posts, remove any with visibility 0
         if !crate::CONFIG.show_hidden {

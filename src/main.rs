@@ -7,6 +7,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, error, info, log::warn};
 
 mod blogpost;
+mod contact;
 mod content;
 mod gopher;
 mod html;
@@ -44,8 +45,18 @@ pub struct Config {
     pub watch_content: bool,
     /// Whether to enable live reloading for HTTP clients on content changes.
     pub live_reload: bool,
-    /// Whether to show hidden projects (those with priority <= 0).
+    /// Whether to show hidden projects and blog posts (those with priority/visibility <= 0).
     pub show_hidden: bool,
+    /// The Sqlite database file to use for messages (`:memory:` for in-memory).
+    pub msg_database: String,
+    /// The maximum size in characters of a single message in the contact form.
+    pub msg_max_size: usize,
+    /// The maximum number of messages that can be sent in a row (i.e. with no reply) in one thread. Used for limiting spam / bounding total message size in a thread without a response from me.
+    pub msg_max_unread_messages: usize,
+    /// The maximum number of outstanding threads with unread messages globally. Limits the size of my "inbox".
+    pub msg_max_unread_threads_global: usize,
+    /// The maximum number of outstanding threads with unread messages for a single IP. Prevents spamming threads to get around the per-thread message limit.
+    pub msg_max_unread_threads_ip: usize,
 }
 impl Config {
     /// Loads the config from env vars.
@@ -78,6 +89,14 @@ impl Config {
             watch_content: Self::parse_var_default("WATCH_CONTENT", false)?,
             live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
             show_hidden: Self::parse_var_default("SHOW_HIDDEN", false)?,
+            msg_database: std::env::var("MSG_DATABASE")?,
+            msg_max_size: Self::parse_var_default("MSG_MAX_SIZE", 1000)?,
+            msg_max_unread_messages: Self::parse_var_default("MSG_MAX_UNREAD_MESSAGES", 5)?,
+            msg_max_unread_threads_global: Self::parse_var_default(
+                "MSG_MAX_UNREAD_THREADS_GLOBAL",
+                200,
+            )?,
+            msg_max_unread_threads_ip: Self::parse_var_default("MSG_MAX_UNREAD_THREADS_IP", 5)?,
         })
     }
     /// Helper to load an env var, returning an error if it's missing or invalid
@@ -122,6 +141,11 @@ impl Config {
             watch_content,
             live_reload,
             show_hidden,
+            msg_database,
+            msg_max_size,
+            msg_max_unread_messages,
+            msg_max_unread_threads_global,
+            msg_max_unread_threads_ip,
             ssh_key: _,
         } = self;
         debug!("Config:");
@@ -136,6 +160,14 @@ impl Config {
         debug!("  WATCH_CONTENT: {}", watch_content);
         debug!("  LIVE_RELOAD: {}", live_reload);
         debug!("  SHOW_HIDDEN: {}", show_hidden);
+        debug!("  MSG_DATABASE: {}", msg_database);
+        debug!("  MSG_MAX_SIZE: {}", msg_max_size);
+        debug!("  MSG_MAX_UNREAD_MESSAGES: {}", msg_max_unread_messages);
+        debug!(
+            "  MSG_MAX_UNREAD_THREADS_GLOBAL: {}",
+            msg_max_unread_threads_global
+        );
+        debug!("  MSG_MAX_UNREAD_THREADS_IP: {}", msg_max_unread_threads_ip);
         debug!("End config.")
     }
 }
@@ -177,8 +209,17 @@ async fn main() -> Result<Infallible> {
     services.spawn(gopher::main(rx.resubscribe()));
     services.spawn(qotd::main(rx.resubscribe()));
     services.spawn(pop3::main(rx.resubscribe()));
+    services.spawn(contact::main());
     services.spawn(watch_content(tx));
-    services.join_next().await.unwrap()?
+    services.spawn(async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to listen for Ctrl-C");
+        Err(eyre!("Ctrl-C Received"))
+    });
+    let result = services.join_next().await.unwrap()?;
+    services.shutdown().await;
+    result
 }
 
 /// Watches for changes to the shared `Content` and updates the static variable as needed. On update, sends a message on
