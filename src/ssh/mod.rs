@@ -21,6 +21,7 @@ use crate::ssh::content::SshContent;
 use self::session::SshSession;
 
 mod apps;
+mod contact;
 mod content;
 mod session;
 mod terminal;
@@ -60,7 +61,7 @@ pub async fn main(_rx: broadcast::Receiver<()>) -> Result<Infallible> {
             match server::run_stream(
                 config,
                 stream,
-                SshSession::new(conn_id, content, channel_tx, timeout_reset),
+                SshSession::new(conn_id, addr, content, channel_tx, timeout_reset),
             )
             .await
             {

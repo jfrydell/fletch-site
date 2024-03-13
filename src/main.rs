@@ -90,7 +90,7 @@ impl Config {
             live_reload: Self::parse_var_default("LIVE_RELOAD", false)?,
             show_hidden: Self::parse_var_default("SHOW_HIDDEN", false)?,
             msg_database: std::env::var("MSG_DATABASE")?,
-            msg_max_size: Self::parse_var_default("MSG_MAX_SIZE", 1000)?,
+            msg_max_size: Self::parse_var_default("MSG_MAX_SIZE", 2500)?,
             msg_max_unread_messages: Self::parse_var_default("MSG_MAX_UNREAD_MESSAGES", 5)?,
             msg_max_unread_threads_global: Self::parse_var_default(
                 "MSG_MAX_UNREAD_THREADS_GLOBAL",

@@ -70,37 +70,6 @@ pub async fn main() -> Result<Infallible> {
     Ok(futures::future::pending().await)
 }
 
-/// A wrapper for a thread ID, represented internally (for Sqlite) as an `i64`.
-#[derive(Clone, Copy, Debug)]
-pub struct ThreadId(i64);
-impl From<u64> for ThreadId {
-    fn from(value: u64) -> Self {
-        Self(value as i64)
-    }
-}
-impl From<ThreadId> for u64 {
-    fn from(value: ThreadId) -> Self {
-        value.0 as u64
-    }
-}
-
-/// Represents a single message, including its contents, (unix) timestamp, and whether it was a response (from me; non-responses are from users).
-#[derive(Clone, Debug, Serialize)]
-pub struct Message {
-    contents: String,
-    timestamp: i64,
-    response: bool,
-}
-
-/// Possible errors occurring when retrieving a thread's messages.
-#[derive(Debug)]
-pub enum MessagesLoadError {
-    /// An internal error occured with a database query and was logged internally.
-    DatabaseError,
-    /// Tried to load a thread that doesn't exist.
-    NoSuchThread,
-}
-
 /// Gets all messages on the given thread.
 pub async fn get_messages(thread: ThreadId) -> Result<Vec<Message>, MessagesLoadError> {
     // Get connection and run rest of function in Sqlite thread
@@ -143,21 +112,6 @@ pub async fn get_messages(thread: ThreadId) -> Result<Vec<Message>, MessagesLoad
             error!("Database error on thread retrieval: {err}");
             Err(MessagesLoadError::DatabaseError)
         })
-}
-
-/// Possible errors that can occur while sending a message or thread.
-#[derive(Debug)]
-pub enum MessageSendError {
-    /// An internal error occured with a database query and was logged internally.
-    DatabaseError,
-    /// The message is too large, exceeding `CONFIG.msg_max_size`.
-    TooLong,
-    /// The thread already contains too many messages without a reply, exceeding `CONFIG.msg_max_unread_messages`.
-    ThreadFull,
-    /// There are too many unread threads in my inbox, so rate limiting is in effect. This may be due to the sending IP exceeding `CONFIG.msg_max_unread_threads_ip`, or all users exceeding `CONFIG.msg_max_unread_threads_global`.
-    InboxFull,
-    /// Tried to send a message on a thread that doesn't exist.
-    NoSuchThread,
 }
 
 /// Creates a new thread of messages starting with the given one, returning the thread ID on success. Errors on database issues, a message exceeding the max size, or too many unresponded threads (globally or for the IP).
@@ -324,4 +278,82 @@ fn check_unread_thread_count_ip(
     } else {
         Ok(count)
     })
+}
+
+/// A wrapper for a thread ID, represented internally (for Sqlite) as an `i64`. Represented as case-insensitive twos-complement hexadecimal for the user.
+#[derive(Clone, Copy, Debug)]
+pub struct ThreadId(i64);
+impl std::fmt::Display for ThreadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:016x}", self.0)
+    }
+}
+impl std::str::FromStr for ThreadId {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        i64::from_str_radix(s, 16).map(|i| ThreadId(i))
+    }
+}
+
+/// Represents a single message, including its contents, (unix) timestamp, and whether it was a response (from me; non-responses are from users).
+#[derive(Clone, Debug, Serialize)]
+pub struct Message {
+    pub contents: String,
+    pub timestamp: i64,
+    pub response: bool,
+}
+
+/// Possible errors occurring when retrieving a thread's messages.
+#[derive(Debug)]
+pub enum MessagesLoadError {
+    /// An internal error occured with a database query and was logged internally.
+    DatabaseError,
+    /// Tried to load a thread that doesn't exist.
+    NoSuchThread,
+}
+impl std::fmt::Display for MessagesLoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessagesLoadError::DatabaseError => write!(f, "internal server error, sorry :("),
+            MessagesLoadError::NoSuchThread => write!(f, "invalid thread ID"),
+        }
+    }
+}
+
+/// Possible errors that can occur while sending a message or thread.
+#[derive(Debug)]
+pub enum MessageSendError {
+    /// An internal error occured with a database query and was logged internally.
+    DatabaseError,
+    /// The message is too large, exceeding `CONFIG.msg_max_size`.
+    TooLong,
+    /// The thread already contains too many messages without a reply, exceeding `CONFIG.msg_max_unread_messages`.
+    ThreadFull,
+    /// There are too many unread threads in my inbox, so rate limiting is in effect. This may be due to the sending IP exceeding `CONFIG.msg_max_unread_threads_ip`, or all users exceeding `CONFIG.msg_max_unread_threads_global`.
+    InboxFull,
+    /// Tried to send a message on a thread that doesn't exist.
+    NoSuchThread,
+}
+impl std::fmt::Display for MessageSendError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageSendError::DatabaseError => write!(f, "internal server error, sorry :("),
+            MessageSendError::TooLong => write!(
+                f,
+                "your message is too long (max size: {} characters)",
+                crate::CONFIG.msg_max_size
+            ),
+            MessageSendError::ThreadFull => write!(
+                f,
+                "too many messages in a row without a reply (max {}), be patient!",
+                crate::CONFIG.msg_max_unread_messages
+            ),
+            MessageSendError::InboxFull => write!(
+                f,
+                "sorry, I'm overwhelmed with unread messages right now, check back later"
+            ),
+            MessageSendError::NoSuchThread => write!(f, "invalid thread ID"),
+        }
+    }
 }

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
 use color_eyre::Result;
@@ -22,6 +22,7 @@ use super::{
 pub struct SshSession {
     id: usize,
     shell: Shell,
+    addr: SocketAddr,
     pub username: String,
     pub content: Arc<SshContent>,
     pub current_dir: usize,
@@ -35,6 +36,7 @@ pub struct SshSession {
 impl SshSession {
     pub fn new(
         id: usize,
+        addr: SocketAddr,
         content: Arc<SshContent>,
         channel_tx: oneshot::Sender<Channel<Msg>>,
         timeout_refresh: mpsc::Sender<()>,
@@ -42,6 +44,7 @@ impl SshSession {
         Self {
             id,
             shell: Shell::default(),
+            addr,
             username: String::new(),
             content,
             current_dir: 0,
@@ -210,6 +213,9 @@ impl server::Handler for SshSession {
                                     };
                                 }
                             },
+                            "msg" => {
+                                response.extend(super::contact::msg(&command, self.addr).await)
+                            }
                             "vi" => match Vim::startup(&self, command) {
                                 Ok((running_app, mut startup_resp)) => {
                                     self.running_app = Some(running_app);
