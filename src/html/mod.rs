@@ -13,6 +13,7 @@ use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
 use tracing::{debug, error, info, warn};
 
+mod contact;
 mod defaulthtml;
 mod fancyhtml;
 mod simplehtml;
@@ -141,9 +142,10 @@ impl HtmlServer {
         if crate::CONFIG.live_reload {
             router = router.route("/ws", get(Self::ws_handler));
         }
-        // Finish router with state, static, and logging
+        // Finish router with state, contact API, static, and logging
         router
             .with_state(self)
+            .nest("/api/message", contact::router())
             .nest_service("/images/", ServeDir::new("content/images/"))
             .layer(tower_http::trace::TraceLayer::new_for_http())
     }

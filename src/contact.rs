@@ -292,7 +292,7 @@ impl std::str::FromStr for ThreadId {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        i64::from_str_radix(s, 16).map(|i| ThreadId(i))
+        u64::from_str_radix(s, 16).map(|i| ThreadId(i as i64))
     }
 }
 
