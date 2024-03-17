@@ -214,7 +214,7 @@ impl server::Handler for SshSession {
                                 }
                             },
                             "msg" => {
-                                response.extend(super::contact::msg(&command, self.addr).await)
+                                response.extend(super::contact::msg(&command, self.addr.ip()).await)
                             }
                             "vi" => match Vim::startup(&self, command) {
                                 Ok((running_app, mut startup_resp)) => {

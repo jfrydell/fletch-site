@@ -47,11 +47,12 @@
     <p class="text-xl p-5 pb-10 font-thin tracking-wide">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
-  
+
   <nav class="sticky top-0 w-full p-2 bg-sky-900 flex flex-row font-light font-sans text-white z-10">
     <a href="/" class="p-2 hover:text-sky-300">Home</a>
     <a href="/#projects" class="p-2 hover:text-sky-300">Projects</a>
     <a href="/#blog" class="p-2 hover:text-sky-300">Blog</a>
+    <a href="/contact" class="p-2 hover:text-sky-300">Contact</a>
     <span class="flex-1"></span>
     <a href="/themes" class="p-2 hover:text-sky-300">Change Theme</a>
     <span class="basis-0 sm:basis-2"></span>

@@ -1,9 +1,9 @@
-use std::net::SocketAddr;
+use std::net::IpAddr;
 
 use crate::contact::ThreadId;
 
 /// Handles the `msg` command, returning the output to be sent to the user's terminal.
-pub async fn msg(command: &str, ip: SocketAddr) -> Vec<u8> {
+pub async fn msg(command: &str, ip: IpAddr) -> Vec<u8> {
     // Split arguments and dispatch to correct handler
     let mut args = command.split(' ');
     args.next(); // command name
@@ -21,7 +21,7 @@ pub async fn msg(command: &str, ip: SocketAddr) -> Vec<u8> {
     response.replace('\n', "\r\n").into_bytes()
 }
 
-async fn msg_send(command: &str, ip: SocketAddr) -> String {
+async fn msg_send(command: &str, ip: IpAddr) -> String {
     // Get message to send (splice off first two arguments) and check size lower bound
     let msg = command.splitn(3, ' ').nth(2).unwrap_or_default();
     if msg.len() < 25 {

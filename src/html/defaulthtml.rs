@@ -10,6 +10,8 @@ pub struct Content {
     pub index: String,
     /// `themes.html` contents
     pub themes: String,
+    /// `contact.html` contents
+    pub contact: String,
     /// Contents of `projects/` indexed by name
     pub projects: HashMap<String, String>,
     /// Contents of `blog/` indexed by name
@@ -48,6 +50,12 @@ impl Content {
             &tera::Context::from_serialize(&content.themes_info)?,
         )?;
 
+        // Make contact page
+        self.contact = self.tera.render(
+            "contact.tera",
+            &tera::Context::from_serialize(&content.contact_info)?,
+        )?;
+
         // Make project pages
         self.projects = HashMap::new();
         for project in content.projects.iter() {
@@ -82,6 +90,7 @@ impl Content {
         // Concatenate all html files together for railwind to parse.
         let mut html = self.index.clone();
         html.push_str(&self.themes);
+        html.push_str(&self.contact);
         for (_, project) in self.projects.iter() {
             html.push_str(project);
         }
@@ -114,6 +123,7 @@ impl Content {
             Themes => Some(self.themes.clone()),
             Project(name) => self.projects.get(name).cloned(),
             BlogPost(name) => self.blog.get(name).cloned(),
+            Contact(_) => Some(self.contact.clone()),
         }
     }
 

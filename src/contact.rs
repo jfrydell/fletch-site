@@ -1,4 +1,4 @@
-use std::{convert::Infallible, net::SocketAddr, sync::Mutex};
+use std::{convert::Infallible, net::IpAddr, sync::Mutex};
 
 use color_eyre::Result;
 
@@ -116,7 +116,7 @@ pub async fn get_messages(thread: ThreadId) -> Result<Vec<Message>, MessagesLoad
 
 /// Creates a new thread of messages starting with the given one, returning the thread ID on success. Errors on database issues, a message exceeding the max size, or too many unresponded threads (globally or for the IP).
 pub async fn create_thread(
-    ip: SocketAddr,
+    ip: IpAddr,
     first_message: String,
 ) -> Result<ThreadId, MessageSendError> {
     // Get connection

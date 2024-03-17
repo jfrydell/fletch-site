@@ -1,0 +1,15 @@
+{
+  "message_caption": "Have feedback on the site? A comment about a page? Just want to say hello? Please send me a message below!",
+  "links": [
+    {
+      "name": "GitHub",
+      "href": "https://github.com/jfrydell",
+      "username": "jfrydell"
+    },
+    {
+      "name": "LinkedIn",
+      "href": "https://www.linkedin.com/in/fletch-rydell/",
+      "username": "fletch-rydell"
+    }
+  ]
+}

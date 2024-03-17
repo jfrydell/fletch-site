@@ -1,0 +1,163 @@
+{% extends "base.tera" %}
+{% block title %}Contact - {{ super() }}{% endblock title %}
+
+{% block header_title %}Contact{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script>
+var current_thread = null;
+
+// Loads a thread by string ID
+async function load_chat(thread_id) {
+  let chat = document.getElementById("chat");
+  let chat_loading = document.getElementById("chat-loading");
+  chat.hidden = false;
+  chat_loading.hidden = false;
+
+  // Update URL
+  history.pushState([], "", `/contact/${thread_id}`);
+
+  // Load stuff
+  let response = await fetch(`/api/message/load/${thread_id}`);
+  if (response.status != 200) {
+    // Error, set error message
+    let chat_error = document.getElementById("chat-error");
+    chat_error.innerText = await response.text();
+    chat_error.hidden = false;
+    chat_loading.hidden = true;
+    return;
+  }
+
+  // Success, remove old messages, loading screen, and error
+  current_thread = thread_id;
+  Array.from(document.getElementsByClassName("chat-msg")).forEach((e) => e.remove());
+  chat_loading.hidden = true;
+  document.getElementById("chat-error").hidden = true;
+
+  // Append new messages
+  let messages = await response.json();
+  for (const msg of messages.reverse()) {
+    let elem = document.createElement("p");
+    console.log(msg);
+    elem.innerText = msg.contents;
+    elem.classList = "chat-msg rounded-lg p-2 w-4/5 sm:w-3/5 lg:w-1/2 bg-gray-100 dark:bg-zinc-700";
+    // for tailwind: class="rounded-lg p-2 w-4/5 sm:w-3/5 lg:w-1/2 bg-gray-100 dark:bg-zinc-700 ml-auto"
+    if (msg.response) {
+      elem.classList.add("ml-auto");
+    }
+    chat.prepend(elem);
+  }
+
+  // Add thread to list if necessary
+  let stored_threads = JSON.parse(localStorage.getItem("contact-threads") || "[]");
+  console.log(stored_threads);
+  if (!stored_threads.includes(thread_id)) {
+    stored_threads.push(thread_id);
+    localStorage.setItem("contact-threads", JSON.stringify(stored_threads));
+    update_threads_list();
+  }
+}
+
+// Sends the inputted message on the current thread, starting a new one if necessary
+async function send_message() {
+  let chat_input = document.getElementById("chat-input");
+  if (!chat_input.value) {
+    return;
+  }
+  // Show loading text
+  let chat = document.getElementById("chat");
+  let chat_loading = document.getElementById("chat-loading");
+  chat.hidden = false;
+  chat_loading.hidden = false;
+
+  // Build request URL based on loaded thread
+  let url = "/api/message/";
+  if (current_thread) {
+    url += `reply/${current_thread}`;
+  } else {
+    url += "send";
+  }
+
+  // Send message
+  let response = await fetch(url, {method: "POST", body: chat_input.value});
+  if (response.status != 200) {
+    // Error, set error message
+    let chat_error = document.getElementById("chat-error");
+    chat_error.innerText = await response.text();
+    chat_error.hidden = false;
+    chat_loading.hidden = true;
+    return;
+  }
+
+  // Success, save returned thread ID if there's no current thread, then load thread
+  if (!current_thread) {
+    current_thread = await response.text();
+  }
+  load_chat(current_thread);
+}
+
+// Checks to see what thread IDs are in localStorage, updating the list with links
+function update_threads_list() {
+  let past_chats = document.getElementById("past-chats");
+  let past_chats_list = document.getElementById("past-chats-list");
+  past_chats_list.innerHtml = "";
+  let stored_threads = JSON.parse(localStorage.getItem("contact-threads") || "[]");
+  if (stored_threads == []) {
+    past_chats.hidden = true;
+    return;
+  }
+  for (const thread of stored_threads) {
+    let elem = document.createElement("a");
+    elem.innerText = thread;
+    elem.addEventListener("click", (e) => {e.preventDefault(); load_chat(thread);});
+    elem.href = `/contact/${thread}`;
+    elem.classList = "text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400";
+    let li = document.createElement("li");
+    li.appendChild(elem);
+    past_chats_list.appendChild(li);
+  }
+  past_chats.hidden = false;
+}
+
+window.onload = () => {
+  update_threads_list();
+  let thread = window.location.pathname.match(/contact\/(\w*)/);
+  if (thread) {
+    load_chat(thread[1].toLowerCase());
+  }
+}
+</script>
+{% endblock head %}
+
+{% block content %}
+<main class="p-8 mx-auto max-w-screen-xl space-y-4 text-lg">
+  <section class="space-y-2">
+    <header class="space-y-1">
+        <h2 class="text-sky-600 dark:text-sky-500 text-4xl">Send a quick message...</h2>
+        <p>{{ message_caption }}</p>
+    </header>
+    <div id="chat" class="p-2 rounded-lg text-sm space-y-2 border border-gray-300 dark:border-gray-600" hidden>
+        <p id="chat-loading">Loading...</p>
+        <p id="chat-error" class="text-red-700 dark:text-red-500" hidden>Error</p>
+    </div>
+    <div class="flex gap-2">
+        <textarea id="chat-input" class="p-2 grow text-sm rounded-lg bg-gray-100 border border-gray-300 focus:border-blue-500 dark:bg-zinc-700 dark:border-gray-600 dark:text-white" placeholder="Write your message here..."></textarea>
+        <button onclick="send_message()" class="px-3 py-1 rounded-md bg-sky-700 text-white text-sm">Send</button>
+    </div>
+    <div id="past-chats" hidden>
+        <p>Here's threads you've started/viewed from this browser:</p>
+        <ul class="list-disc pl-8" id="past-chats-list"></ul>
+    </div>
+  </section>
+  <section class="space-y-1">
+    <h3 class="text-sky-600 dark:text-sky-500 text-4xl">Some Links</h3>
+    <ul class="list-disc pl-8">
+    {% for link in links %}
+        <li>{{ link.name }}: <a href="{{ link.href }}" class="text-sky-700 hover:text-sky-600 dark:text-sky-500 dark:hover:text-sky-400">{{ link.username }}</a></li>
+    {% endfor %}
+    </ul>
+  </section>
+</main>
+
+{% endblock content %}

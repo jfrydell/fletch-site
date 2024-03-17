@@ -177,6 +177,7 @@ static CONTENT: RwLock<Content> = RwLock::new(Content {
     blog_posts: Vec::new(),
     index_info: serde_json::Value::Null,
     themes_info: serde_json::Value::Null,
+    contact_info: serde_json::Value::Null,
 });
 
 #[tokio::main]
@@ -185,7 +186,17 @@ async fn main() -> Result<Infallible> {
     if std::env::var("RUST_LIB_BACKTRACE").is_err() {
         std::env::set_var("RUST_LIB_BACKTRACE", "1");
     }
-    color_eyre::install()?;
+    color_eyre::config::HookBuilder::default()
+        .add_frame_filter(Box::new(|frames| {
+            const FILTERED_NAMES: [&str; 4] = ["tokio", "___rust_try", "panic", "thread::local"];
+            frames.retain(|frame| {
+                !frame
+                    .name
+                    .as_ref()
+                    .is_some_and(|f| FILTERED_NAMES.iter().any(|n| f.contains(n)))
+            })
+        }))
+        .install()?;
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "debug,hyper=warn,russh=info");
     }

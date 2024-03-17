@@ -84,6 +84,7 @@ impl Content {
             Themes => Some(self.themes.clone()),
             Project(name) => self.projects.get(name).cloned(),
             BlogPost(name) => self.blog.get(name).cloned(),
+            _ => None,
         }
         .map(|page| {
             if pure {

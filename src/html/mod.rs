@@ -5,12 +5,12 @@ use axum::{
     extract::{ws, FromRequestParts, Path, Query, State},
     response::{AppendHeaders, Html, IntoResponse},
     routing::get,
-    Router,
+    Router, ServiceExt,
 };
 use color_eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
-use tower_http::services::ServeDir;
+use tower_http::{normalize_path::NormalizePath, services::ServeDir};
 use tracing::{debug, error, info, warn};
 
 mod contact;
@@ -53,7 +53,7 @@ impl HtmlServer {
         // Start server over HTTP
         tracing::info!("listening on http://{}", crate::CONFIG.http_port);
         axum_server::bind(sock_addr)
-            .serve(self.router().into_make_service())
+            .serve(ServiceExt::<hyper::Request<axum::body::Body>>::into_make_service(self.router()))
             .await
             .expect("Unable to start server");
 
@@ -96,7 +96,7 @@ impl HtmlServer {
     }
 
     /// Creates the Axum router for the HTML server.
-    fn router(self: Arc<Self>) -> Router {
+    fn router(self: Arc<Self>) -> NormalizePath<Router> {
         // Build router for all normal pages
         let mut router = Router::new()
             .route(
@@ -112,6 +112,24 @@ impl HtmlServer {
                 get(
                     |State(server): State<Arc<Self>>, version: ExtractVersion| async move {
                         server.get_page(Page::Themes, version).await
+                    },
+                ),
+            )
+            .route(
+                "/contact",
+                get(
+                    |State(server): State<Arc<Self>>, version: ExtractVersion| async move {
+                        server.get_page(Page::Contact(None), version).await
+                    },
+                ),
+            )
+            .route(
+                "/contact/:thread",
+                get(
+                    |State(server): State<Arc<Self>>,
+                     Path(thread): Path<String>,
+                     version: ExtractVersion| async move {
+                        server.get_page(Page::Contact(Some(thread)), version).await
                     },
                 ),
             )
@@ -143,11 +161,13 @@ impl HtmlServer {
             router = router.route("/ws", get(Self::ws_handler));
         }
         // Finish router with state, contact API, static, and logging
-        router
+        let router = router
             .with_state(self)
             .nest("/api/message", contact::router())
             .nest_service("/images/", ServeDir::new("content/images/"))
-            .layer(tower_http::trace::TraceLayer::new_for_http())
+            .layer(tower_http::trace::TraceLayer::new_for_http());
+        // Redirect trailing slashes
+        tower_http::normalize_path::NormalizePath::trim_trailing_slash(router)
     }
 
     /// Handles a request for a page, given which page and which version of content to use.
@@ -307,10 +327,9 @@ where
             Ok(Query(QueryVersion { version })) => Ok(Self(
                 Some(version),
                 cookies.add(
-                    Cookie::build("version", version.to_string())
+                    Cookie::build(("version", version.to_string()))
                         .path("/")
-                        .permanent()
-                        .finish(),
+                        .permanent(),
                 ),
             )),
             Err(_) => Ok(Self(version, cookies)),
@@ -398,6 +417,7 @@ impl std::str::FromStr for HtmlVersion {
 pub enum Page {
     Index,
     Themes,
+    Contact(Option<String>),
     Project(String),
     BlogPost(String),
 }
@@ -406,6 +426,10 @@ fn get_canonical_url(page: &Page) -> String {
     match page {
         Page::Index => format!("https://{}/", crate::CONFIG.domain),
         Page::Themes => format!("https://{}/themes", crate::CONFIG.domain),
+        Page::Contact(None) => format!("https://{}/contact", crate::CONFIG.domain),
+        Page::Contact(Some(thread)) => {
+            format!("https://{}/contact/{}", crate::CONFIG.domain, thread)
+        }
         Page::Project(project) => format!("https://{}/projects/{}", crate::CONFIG.domain, project),
         Page::BlogPost(post) => format!("https://{}/blog/{}", crate::CONFIG.domain, post),
     }

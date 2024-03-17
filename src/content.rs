@@ -10,6 +10,7 @@ pub struct Content {
     pub blog_posts: Vec<blogpost::BlogPost>,
     pub index_info: serde_json::Value,
     pub themes_info: serde_json::Value,
+    pub contact_info: serde_json::Value,
 }
 impl Content {
     /// Loads all content from the `content/` directory.
@@ -19,12 +20,15 @@ impl Content {
             serde_json::from_str(&tokio::fs::read_to_string("content/index.json").await?)?;
         let themes_info =
             serde_json::from_str(&tokio::fs::read_to_string("content/themes.json").await?)?;
+        let contact_info =
+            serde_json::from_str(&tokio::fs::read_to_string("content/contact.json").await?)?;
 
         Ok(Content {
             projects: Self::load_projects().await?,
             blog_posts: Self::load_blog_posts().await?,
             index_info,
             themes_info,
+            contact_info,
         })
     }
 

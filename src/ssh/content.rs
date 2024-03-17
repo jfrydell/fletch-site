@@ -3,7 +3,9 @@ use std::{borrow::Cow, collections::BTreeMap};
 use color_eyre::{eyre::eyre, Result};
 
 pub static WELCOME_MESSAGE: &[u8] = "Welcome to the SSH version of my website! This is very much a work in progress, but I hope you enjoy it nonetheless!\r
-To navigate, use the 'ls' and 'cd' commands to see the available pages and 'cat' or 'vi' to view them. Type 'exit' or 'logout' to leave. Type 'help' anytime to see this message.\r\n".as_bytes();
+To navigate, use the 'ls' and 'cd' commands to see the available pages and 'cat' or 'vi' to view them.\r
+If you have any feedback, use the 'msg' command to send it (or view any replies to messages you've sent).\r
+To see this message again, just use `help`, and when you're ready to go, type 'exit' or 'logout' (or Ctrl-D).\r\n".as_bytes();
 
 /// The rendered content for the SSH server.
 #[derive(Debug)]
