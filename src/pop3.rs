@@ -126,6 +126,7 @@ async fn handle_connection(mut connection: TcpStream, content: Arc<Pop3Content>)
 }
 
 /// All supported POP3 commands, able to be parsed from a string.
+#[allow(dead_code)]
 enum Pop3Command {
     User(String),
     Pass(String),

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Breaking in a Condition</title>
+<url>breakcondition</url>
+<date>2024-03-25T18:00:00</date>
+<visibility>1</visibility>
+<content><![CDATA[
+While working on a [compiler](https://adhilton.pratt.duke.edu/teaching/ece-553) for [Appel's "Tiger" language](https://www.cs.princeton.edu/~appel/modern/ml/), I encountered an interesting edge case I'd never thought of: what does `break` do inside of a while loop's condition?
+
+Inside the body of the loop, the `break` of course applies to the innermost containing loop expression, stopping iteration over the body. However, since this is an expression-oriented language, it's also perfectly valid to put a `break` in the condition of the while loop, for example: `while (if done then break; i:=i+1; i <= 10) do (if g(i) then done := 1; print(g(i)))`.
+
+So, what should this do? Given that the while loop condition is executed once per iteration, I opted to make the `break` behave like one inside the body, jumping to the end of the loop. This has the advantage of allowing `do/while`-like constructs by putting the entire body in the condition. However, I can see an argument for treating such `break`s as part of the surrounding body, breaking out of any outer loop (or erroring if no such loop exists).
+
+Looking at actual languages, it's surprisingly hard to find any where this is even syntactically possible! C and many syntactically similar languages require the loop condition to be an expression, while `break` is a statement. Expression-oriented languages don't have this issue, but many of them (mostly functional languages) don't have loops at all (or like Scala, have loops but not `break`).
+
+Out of the languages I tested, the only ones supporting this are Rust, Perl, and Kotlin. Rust throws [error E0590](https://doc.rust-lang.org/stable/error_codes/E0590.html), requiring the loop to break out of to be labeled explicitly. Perl takes my approach, breaking out of the loop containing the conditional. Kotlin actually does the opposite, interpretting `while(break) {}` the same as `break` when inside a loop. However, it also gives an `Unreachable code` warning (leading one to wonder exactly what code it considers unreachable given the empty loop body).
+]]></content>
+</blogpost>

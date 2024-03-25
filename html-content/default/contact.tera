@@ -103,7 +103,8 @@ function update_threads_list() {
   let past_chats_list = document.getElementById("past-chats-list");
   past_chats_list.innerHtml = "";
   let stored_threads = JSON.parse(localStorage.getItem("contact-threads") || "[]");
-  if (stored_threads == []) {
+  console.log(stored_threads);
+  if (stored_threads.length == 0) {
     past_chats.hidden = true;
     return;
   }
@@ -122,7 +123,7 @@ function update_threads_list() {
 
 window.onload = () => {
   update_threads_list();
-  let thread = window.location.pathname.match(/contact\/(\w*)/);
+  let thread = window.location.pathname.match(/contact\/(\w+)/);
   if (thread) {
     load_chat(thread[1].toLowerCase());
   }

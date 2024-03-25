@@ -24,9 +24,12 @@ async fn create_thread(ip: Option<SecureClientIp>, msg: String) -> impl IntoResp
     // If IP extraction failed, log error (points to error in proxy configuration) and return. Otherwise, create thread.
     let result = match ip {
         None => {
-            error!("Failed to extract IP, is proxy configured with X-Forwarded-For header?");
-            Err(MessageSendError::DatabaseError)
-            // contact::create_thread(std::net::IpAddr::from([0, 0, 0, 0]), msg).await
+            if crate::CONFIG.msg_ignore_ip {
+                contact::create_thread(std::net::IpAddr::from([0, 0, 0, 0]), msg).await
+            } else {
+                error!("Failed to extract IP, is proxy configured with X-Forwarded-For header?");
+                Err(MessageSendError::DatabaseError)
+            }
         }
         Some(ip) => contact::create_thread(ip.0, msg).await,
     };

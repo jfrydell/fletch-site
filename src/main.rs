@@ -57,6 +57,8 @@ pub struct Config {
     pub msg_max_unread_threads_global: usize,
     /// The maximum number of outstanding threads with unread messages for a single IP. Prevents spamming threads to get around the per-thread message limit.
     pub msg_max_unread_threads_ip: usize,
+    /// If set, all incoming messages are treated as coming from IP 0.0.0.0 for testing without a reverse proxy setting X-Forwarded-For.
+    pub msg_ignore_ip: bool,
 }
 impl Config {
     /// Loads the config from env vars.
@@ -97,6 +99,10 @@ impl Config {
                 200,
             )?,
             msg_max_unread_threads_ip: Self::parse_var_default("MSG_MAX_UNREAD_THREADS_IP", 5)?,
+            msg_ignore_ip: std::env::var("MSG_IGNORE_IP")
+                .unwrap_or("false".to_string())
+                .parse()
+                .map_err(|e| eyre!("Invalid MSG_IGNORE_IP: {e}"))?,
         })
     }
     /// Helper to load an env var, returning an error if it's missing or invalid
@@ -146,6 +152,7 @@ impl Config {
             msg_max_unread_messages,
             msg_max_unread_threads_global,
             msg_max_unread_threads_ip,
+            msg_ignore_ip,
             ssh_key: _,
         } = self;
         debug!("Config:");
@@ -168,6 +175,7 @@ impl Config {
             msg_max_unread_threads_global
         );
         debug!("  MSG_MAX_UNREAD_THREADS_IP: {}", msg_max_unread_threads_ip);
+        debug!("  MSG_IGNORE_IP: {}", msg_ignore_ip);
         debug!("End config.")
     }
 }
