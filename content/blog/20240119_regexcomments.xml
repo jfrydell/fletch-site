@@ -4,14 +4,21 @@
 <url>regexcomments</url>
 <date>2024-01-19T18:00:00</date>
 <visibility>1</visibility>
-<content>
+<content><![CDATA[
 An interesting problem was presented during my [Compilers Class](https://adhilton.pratt.duke.edu/teaching/ece-553) yesterday: write a regular expression that matches all valid C-style block comments but no other strings. To avoid extra escaping, we'll consider an alternative comment syntax with `/` replaced with `l` and `*` replaced with `x`: (`lx this is a comment xl` matches but `lx this isn't xlxl` doesn't).
 
 My first attempt's logic was to match a comment beginning (`lx`) followed by anything except `xl` any number of times and finally `xl`. Inverting `xl` gives the regex `[^x]|x[^l]`, for the complete regex `lx([^x]|x[^l])*xl`. Unfortunately, this fails to match `lxxxl` (or `/***/` in C syntax).
 
 The most obvious fix for this is `lx([^x]|x[^l])*x+l`, which (I believe) does correctly match all valid C comments. However, it also matches the string `lxxxlxl` (C syntax `/***/*/`), which is not a C comment on its own. This is ultimately due to the structure of the regex, with the `(x[^l])` term consuming the character after the `x`.
 
-Doing this correctly is non-obvious, and is better thought about as a state machine / [deterministic finite automata](https://en.wikipedia.org/wiki/Deterministic_finite_automaton). Thinking about it like this, we first need to match `lx`, and from there can match any character but `x` while remaining in the same state. On an `x`, we transition to a new state, from which `x` remains in the same state, `l` finishes the comment (and any following characters should be cause the string to be rejected), and anything else moves back to the previous state.
+Doing this correctly is non-obvious, and is better thought about as a state machine / [nondeterministic finite automata](https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton). Thinking about it like this, we first need to match `lx`, and from there can match any character but `x` while remaining in the same state. On an `x`, we transition to a new state, from which `x` remains in the same state, `l` finishes the comment (and any following characters should be cause the string to be rejected), and anything else moves back to the previous state.
+
+![Diagram of an NFA matching C comments](commentregexdfa.svg)
+
+To turn this into a regex, we can start by removing the second state. The transition from first to third is now `lx[^x]*x` (just the transition in, followed by zero or more transitions back to itself, and the transition out) and from third to third is `x|[^xl][^x]*x` (because either the new or old can be taken). Now, this can be repeated any number of times between the two forward transitions to obtain the regex `lx[^x]*x(x|[^xl][^x]*x)*l`, which correctly matches comments.
+
+UPDATE: Reducing about the third state instead of the second gives `lx([^x]|x+[^xl])*x+l` after a bit of simplification, which is far more intuitive to me, more similar to my initial guess.
+]]></content>
 <!-- DIAGRAM
 <svg height="500" width="900">
   <defs>
@@ -54,10 +61,4 @@ Doing this correctly is non-obvious, and is better thought about as a state mach
   Sorry, your browser does not support inline SVG.
 </svg>
 -->
-<img src="commentregexdfa.svg" />
-
-To turn this into a regex, we can start by removing the second state. The transition from first to third is now `lx[^x]*x` (just the transition in, followed by zero or more transitions back to itself, and the transition out) and from third to third is `x|[^xl][^x]*x` (because either the new or old can be taken). Now, this can be repeated any number of times between the two forward transitions to obtain the regex `lx[^x]*x(x|[^xl][^x]*x)*l`, which correctly matches comments.
-
-UPDATE: Reducing about the third state instead of the second gives `lx([^x]|x+[^xl])*x+l` after a bit of simplification, which is far more intuitive to me, more similar to my initial guess.
-</content>
 </blogpost>

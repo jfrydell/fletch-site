@@ -13,6 +13,9 @@ body > header {
     text-align: center;
     margin-top: 2em;
 }
+main header {
+    margin-bottom: 2em;
+}
 
 h1,
 h2,

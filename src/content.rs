@@ -1,5 +1,6 @@
 use crate::eyre;
 use crate::{blogpost, project};
+use color_eyre::eyre::Context;
 use color_eyre::Result;
 use serde::Serialize;
 use tracing::info;
@@ -82,8 +83,9 @@ impl Content {
             if path.is_file() {
                 // Load post
                 let blog_post: blogpost::BlogPost = quick_xml::de::from_reader(
-                    std::io::BufReader::new(std::fs::File::open(path)?),
-                )?;
+                    std::io::BufReader::new(std::fs::File::open(&path)?),
+                )
+                .wrap_err_with(|| format!("Error in blog post {}", path.to_string_lossy()))?;
                 blog_posts.push(blog_post);
             }
         }

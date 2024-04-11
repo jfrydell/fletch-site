@@ -1,12 +1,6 @@
 {% extends "base.tera" %}
 {% block title %}{{ post.title }} - {{ super() }}{% endblock title %}
 
-{% block header %}
-<header>
-  <h1>Fletch Rydell's Blog</h1>
-</header>
-{% endblock %}
-
 {% block content %}
 <main>
   <header>
@@ -20,15 +14,29 @@
 {# Renders an array of `Element` enums #}
 {% macro render(content) %}
 {%- for element in content -%}
-{%- if element["$text"] -%}
-{{ element["$text"]|linebreaksbr|safe }}
-{%- elif element["img"] -%}
-<img src="/images/{{ element.img['@src'] }}" class="padded-img" />
-{%- elif element["a"] -%}
-{{ element.a['@lead'] }}<a href="{{ element.a['@href'] }}">{{
-  self::render(content = element.a["$value"]) }}</a>{{ element.a['@trail'] }}
-{%- elif element["c"] -%}
-{{ element.c['@lead'] }}<code>{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
+{%- if element.t == "paragraph" -%}
+<p>{{ self::render_text(text = element.text) }}</p>
+{%- else -%}
+{{ VARIANT_DOESNT_EXIST[element.t] }}
+{%- endif -%}
+{%- endfor -%}
+{% endmacro %}
+
+{# Renders an array of `InlineElement` enums #}
+{% macro render_text(text) %}
+{%- for element in text -%}
+{%- if element.t == "text" -%}
+{{ element.content|linebreaksbr|safe }}
+{%- elif element.t == "link" -%}
+<a href="{{ element.href }}">{{ self::render_text(text = element.text) }}</a>
+{%- elif element.t == "emph" -%}
+<em>{{ self::render_text(text = element.text) }}</em>
+{%- elif element.t == "inline_code" -%}
+<code>{{ element.content }}</code>
+{%- elif element.t == "image" -%}
+<img alt="{{ element.alt }}" src="/images/{{ element.src }}" />
+{%- else -%}
+{{ TEXT_VARIANT_DOESNT_EXIST[element.t] }}
 {%- endif -%}
 {%- endfor -%}
 {% endmacro %}

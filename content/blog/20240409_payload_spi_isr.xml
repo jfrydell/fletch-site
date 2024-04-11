@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Thread-Safety of ESP32 SPI Driver</title>
+<url>aerospithreadsafety</url>
+<date>2024-04-09T18:00:00</date>
+<visibility>0</visibility>
+<content><![CDATA[
+Last week, I was working on the firmware for a [rocket payload's](https://dukerocketry.com/) flight computer, when I encountered an intermittent crash occuring within 5 to 35 seconds of rebooting the ESP32 microcontroller I was using. Because I had just refactored various components into FreeRTOS tasks to take advantage of the ESP32's two cores, I was highly suspicious of a data race or other thread safety issue in the code.
+
+The flight computer has several tasks, but two are important here: reading data from various sensors, and sending telemetry over a LoRa radio. Both the various sensors and [RFM95](https://www.adafruit.com/product/3072) LoRa radio use SPI to communicate with the microcontroller, all sharing one bus. Checking [the documentation](https://docs.espressif.com/projects/esp-idf/en/v5.2.1/esp32/api-reference/peripherals/spi_master.html#driver-features), I saw that "as long as each Device is accessed by only one task, the driver is thread-safe," leading me to conclude that locking the SPI bus was unnecessary. However, after disabling SPI in the telemetry task seemed to fix the crash, I became skeptical of this claim. In fact, [each _bus_](https://github.com/espressif/esp-idf/issues/5517) must be accessed from a single task for thread-safety.
+
+Despite my annoyance at the time I had wasted due to misunderstood documentation, I quickly put a mutex around each use of the SPI bus, which seemed to solve the problem. However, as I continued testing, I noticed the crashing continued, just less often, occurring after several minutes. However, by removing delays between each task's SPI accesses, I could reproduce the crash consistently.
+
+After banging my head against the wall for several more hours, I finally found the culprit: an [interrupt handler](https://github.com/hallard/RadioHead/blob/818d1d2f7b07aae8ffd7bae38becf15be2bbcc71/RH_RF95.cpp#L142) in the library we were using to interface with the LoRa chip. This library initiates several SPI transactions within the interrupt handler, causing a crash if another device is using the bus.
+
+Fortunately, the library initiates transactions through an extensible SPI interface class, which I had already subclassed to use a multiplexed SPI bus, so I could add code around these reads to support multi-threading. Unfortunately, there's no great choice for how to handle an in-use bus in the ISR.
+
+The obvious solution would be to acquire the mutex in the ISR itself, blocking until it's available. However, blocking on a mutex in an ISR is a bad idea, as deadlocks are possible when the interrupt cannot yield to the task holding the mutex. Also, the LoRa library's abstraction around SPI doesn't differentiate between reads from an ISR and from the main task, which FreeRTOS mutexes require. The ideal solution would be for the ISR to not initiate any SPI transactions, simply setting a flag for the main LoRa task to handle it, but there simply wasn't time to rewrite the library in this way in the few days before our test launch.
+
+Another option would be to disable the LoRa interrupt while the SPI bus mutex is in use. This could work, but ordering disabling the interrupt and acquiring the lock is tricky. Additionally, the LoRa interrupt is edge triggered (despite a comment in the library mentioning the benefits of level-triggered), so any interrupt occuring in this time would be completely missed.
+
+Instead, I went with a simpler, uglier solution: replacing the [mutex](https://www.freertos.org/Real-time-embedded-RTOS-mutexes.html) with a lower-level [critical section](https://www.freertos.org/taskENTER_CRITICAL_taskEXIT_CRITICAL.html), [implemented with a spinlock](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/freertos_idf.html#implementation) on ESP32. This disables interrupts globally during SPI transactions, which, to be clear, is 100% a _bad_ idea, but at least I'm 90% sure it's a _working_ idea, taking advantage of the available FreeRTOS primitives rather than rolling my own possibly-flawed solution. With little time to launch, and when dealing with concurrency bugs, preventing crashes is really all that matters.
+]]></content>
+</blogpost>

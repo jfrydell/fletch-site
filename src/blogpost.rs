@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::Peekable};
 
 use chrono::NaiveDateTime;
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{eyre::bail, Result};
 use serde::{Deserialize, Serialize};
 
 /// One blog post and all of its content and metadata.
@@ -18,134 +18,6 @@ pub struct BlogPost {
     pub content: Content,
 }
 
-/// The content of a blog post, including the `Element`s that make it up as well as footnotes.
-#[derive(Serialize, Debug, Clone)]
-pub struct Content {
-    /// The body of the content, consisting of several `Element`s.
-    content: Vec<Element>,
-    /// The footnotes of the content, indexed by `ref`.
-    footnotes: HashMap<String, Vec<Element>>,
-}
-
-/// The XML "as-is" content of a project, with no processing of shorthands or footnotes.
-#[derive(Deserialize, Clone, Debug)]
-pub struct ContentBody {
-    #[serde(rename = "$value", default)]
-    sections: Vec<Element>,
-}
-
-/// Deserialization for blog post content from a string.
-fn deserialize_content<'de, D>(de: D) -> Result<Content, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    // Parse the XML into a struct as-is.
-    let mut sections = ContentBody::deserialize(de)?.sections;
-
-    // Pull out the footnotes and store them in a map.
-    let mut footnotes = HashMap::new();
-    sections.retain(|element| match element {
-        Element::Footnote { reference, content } => {
-            footnotes.insert(reference.clone(), content.clone());
-            false
-        }
-        _ => true,
-    });
-
-    // Process any shorthand in the content.
-    expand_shorthand(&mut sections).map_err(|e| {
-        use serde::de::Error;
-        D::Error::custom(format!(
-            "Error expanding shorthand in blog post content: {e}"
-        ))
-    })?;
-
-    Ok(Content {
-        content: sections,
-        footnotes: HashMap::new(),
-    })
-}
-
-/// Expands out any shorthand in the given `Element`s, returning `true` if shorthand was expanded. Terrible algorithm, but too lazy for an actual lexer or regex or whatever.
-fn expand_shorthand(elements: &mut Vec<Element>) -> Result<()> {
-    let mut element_i = 0;
-    while element_i < elements.len() {
-        if matches!(elements[element_i], Element::Text(..)) {
-            // Search for shorthand in the text
-            let Element::Text(text) = &mut elements[element_i] else {
-                unreachable!()
-            };
-            // Code and link shorthand (TODO: use regex so [ is allowed in text, already a hack to have code before link to let [ in code)
-            if let Some(i) = text.find('`') {
-                let code_and_rest = &text[i + 1..];
-                let code_end = code_and_rest
-                    .find('`')
-                    .ok_or(eyre!("No ` closing inline code"))?;
-                let code = &code_and_rest[..code_end];
-
-                // Construct new elements
-                let code = Element::InlineCode {
-                    lang: None,
-                    leading_space: String::new(),
-                    trailing_space: String::new(),
-                    text: code.to_owned(),
-                };
-                let rest = Element::Text(code_and_rest[code_end + 1..].to_string());
-
-                // Construct subsequent text and truncate
-                text.truncate(i);
-                elements.insert(element_i + 1, code);
-                elements.insert(element_i + 2, rest);
-            } else if let Some(i) = text.find('[') {
-                // Grab link and the rest of the text for processing
-                let link_and_rest = &text[i..];
-
-                // Construct link element
-                let link_end = link_and_rest.find(']').ok_or(eyre!("No ] closing link"))?;
-                let link_content: ContentBody = quick_xml::de::from_str(&format!(
-                    "<?xml version=\"1.0\"?><a>{}</a>",
-                    &link_and_rest[1..link_end]
-                ))?;
-                let href_and_rest = &link_and_rest[link_end + 1..];
-                let href_end = href_and_rest.find(')').ok_or(eyre!("No ) closing link"))?;
-                let href = &href_and_rest[1..href_end].to_string();
-                let link = Element::Link {
-                    href: href.clone(),
-                    leading_space: "".to_string(),
-                    trailing_space: "".to_string(),
-                    text: link_content.sections,
-                };
-
-                // Construct subsequent text
-                let rest = Element::Text(href_and_rest[href_end + 1..].to_string());
-
-                // Add new elements after current and truncate current to prepare for next iteration
-                text.truncate(i);
-                elements.insert(element_i + 1, link);
-                elements.insert(element_i + 2, rest);
-            } else {
-                // No match, move to next element
-                element_i += 1;
-            }
-        } else {
-            // Recursive descent into any elements containing text
-            match &mut elements[element_i] {
-                Element::Link { ref mut text, .. } => expand_shorthand(text)?,
-                Element::Footnote {
-                    ref mut content, ..
-                } => expand_shorthand(content)?,
-                Element::Text(..) => {}
-                Element::Code { .. } => {}
-                Element::InlineCode { .. } => {}
-                Element::FootnoteRef { .. } => {}
-                Element::Image { .. } => {}
-            };
-            element_i += 1;
-        }
-    }
-    Ok(())
-}
-
 /// Possible tags for a blog post.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase", tag = "$text")]
@@ -154,64 +26,230 @@ pub enum Tag {
     Note,
 }
 
-/// A single element of content, such as a `Group` of other elements or a `Paragraph` of text.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum Element {
-    /// A link, with leading and trailing spaces (bad hack).
-    #[serde(rename = "a")]
-    Link {
-        #[serde(rename = "@href")]
-        href: String,
-        #[serde(rename = "@lead", default = "space")]
-        leading_space: String,
-        #[serde(rename = "@trail", default = "space")]
-        trailing_space: String,
-        #[serde(rename = "$value")]
-        text: Vec<Element>,
-    },
-    /// Inline code snippet, with optional language.
-    #[serde(rename = "c")]
-    InlineCode {
-        #[serde(rename = "@lang")]
-        lang: Option<String>,
-        #[serde(rename = "@lead", default = "space")]
-        leading_space: String,
-        #[serde(rename = "@trail", default = "space")]
-        trailing_space: String,
-        #[serde(rename = "$text")]
-        text: String,
-    },
-    /// Code block, with optional language.
-    #[serde(rename = "cb")]
-    Code {
-        #[serde(rename = "@lang")]
-        lang: Option<String>,
-        #[serde(rename = "$text")]
-        text: String,
-    },
-    /// Footnote reference.
-    #[serde(rename = "fnref")]
-    FootnoteRef {
-        #[serde(rename = "@ref")]
-        reference: String,
-    },
-    /// Footnote definition.
-    #[serde(rename = "footnote")]
-    Footnote {
-        #[serde(rename = "@ref")]
-        reference: String,
-        #[serde(rename = "$value")]
-        content: Vec<Element>,
-    },
-    /// Embedded image
-    #[serde(rename = "img")]
-    Image {
-        #[serde(rename = "@src")]
-        src: String,
-    },
-    #[serde(rename = "$text")]
-    Text(String),
+/// The content of a blog post, consisting of (for now) only the `Element`s that make it up.
+#[derive(Serialize, Debug, Clone)]
+pub struct Content {
+    /// The body of the content, consisting of several `Element`s.
+    content: Vec<Element>,
 }
-fn space() -> String {
-    " ".to_string()
+
+/// Deserialization for blog post content from a string.
+fn deserialize_content<'de, D>(de: D) -> Result<Content, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    // Parse the XML body into a String as-is, then parse as jdot event stream.
+    let raw = String::deserialize(de)?; //.content;
+    let mut events = jotdown::Parser::new(&raw).peekable();
+    let elements = Element::parse_many(&mut events)
+        .map_err(|e| serde::de::Error::custom(format!("error deserializing post content: {e}")))?;
+
+    // TODO: number footnotes
+    dbg!(&elements);
+
+    Ok(Content { content: elements })
+}
+
+// Utility macro to check ending event matches the given container, bailing if not.
+macro_rules! assert_container_end {
+    ($e:expr, $c:pat) => {
+        let e = $e.next();
+        match e {
+            Some(jotdown::Event::End($c)) => (),
+            _ => bail!("Expected container end, got {e:?}"),
+        }
+    };
+}
+
+/// A block-level element of content, such as `Paragraph` of text or `Footnote`.
+#[derive(Serialize, Clone, Debug)]
+#[serde(tag = "t", rename_all = "lowercase")]
+pub enum Element {
+    /// Paragraph, consisting of some text
+    Paragraph { text: Vec<InlineElement> },
+    /// Code block, with optional language.
+    Code {
+        lang: Option<String>,
+        content: String,
+    },
+    /// Footnote contents (not to be confused with `FootnoteRef` inline)
+    Footnote {
+        number: i32,
+        tag: String,
+        text: Vec<InlineElement>,
+    },
+}
+impl Element {
+    /// Parse several `Element`s from an iterator of jotdown events.
+    fn parse_many(events: &mut Peekable<jotdown::Parser>) -> Result<Vec<Self>> {
+        type E<'s> = jotdown::Event<'s>;
+        type C<'s> = jotdown::Container<'s>;
+
+        // Keep parsing while containers are starting
+        let mut elements = vec![];
+        loop {
+            // Get the next event if we haven't reached the end of file or an enclosing container.
+            let Some(e) = events.next_if(|e| !matches!(e, E::End(_))) else {
+                break;
+            };
+
+            // Parse based on the event we got
+            let elem = match e {
+                E::Start(C::Paragraph, _) => {
+                    let text = InlineElement::parse_many(events)?;
+                    assert_container_end!(events, C::Paragraph);
+                    Self::Paragraph { text }
+                }
+                E::Start(C::CodeBlock { language }, _) => {
+                    // Get lang
+                    let lang = if language.is_empty() {
+                        None
+                    } else {
+                        Some(language.to_string())
+                    };
+
+                    // Get contents (must be just one string, will fail on next element otherwise)
+                    let Some(content) = InlineElement::parse_text(events) else {
+                        bail!("Invalid code block contents")
+                    };
+
+                    assert_container_end!(events, C::CodeBlock { .. });
+                    Self::Code { lang, content }
+                }
+                E::Start(C::Footnote { label }, _) => {
+                    let text = InlineElement::parse_many(events)?;
+                    assert_container_end!(events, C::Paragraph);
+                    // Set number to 0 for now, top level will set refs and footnotes correctly
+                    Self::Footnote {
+                        number: 0,
+                        tag: label.to_string(),
+                        text,
+                    }
+                }
+                E::Blankline => continue,
+                E::End(_) => unreachable!(),
+                _ => bail!("Got invalid/unsupported event while parsing blocks: {e:?}"),
+            };
+            elements.push(elem);
+        }
+
+        Ok(elements)
+    }
+}
+
+/// An element appearing inline, as part of text.
+#[derive(Serialize, Clone, Debug)]
+#[serde(tag = "t", rename_all = "snake_case")]
+pub enum InlineElement {
+    /// Plain text
+    Text { content: String },
+    /// Emphasized text
+    Emph { text: Vec<InlineElement> },
+    /// A link to some URL (links to tags unsupported)
+    Link {
+        href: String,
+        /// The text to link (just a `Text` for autolinks)
+        text: Vec<InlineElement>,
+    },
+    /// Inline code snippet / verbatim
+    InlineCode { content: String },
+    /// Footnote reference
+    FootnoteRef { number: i32, tag: String },
+    /// Embedded image
+    Image { src: String, alt: String },
+}
+impl InlineElement {
+    /// Parse several `InlineElement`s from an iterator of jotdown events.
+    fn parse_many(events: &mut Peekable<jotdown::Parser>) -> Result<Vec<Self>> {
+        type E<'s> = jotdown::Event<'s>;
+        type C<'s> = jotdown::Container<'s>;
+        use jotdown::{LinkType, SpanLinkType};
+
+        // Keep parsing while containers are starting
+        let mut elements = vec![];
+        loop {
+            // First, get any inline text any add it separately, so we don't need to handle it
+            match Self::parse_text(events) {
+                Some(content) => elements.push(Self::Text { content }),
+                None => (),
+            }
+
+            // Get the next event (guarenteed non-text) if we haven't reached the end of file or an enclosing container.
+            let Some(e) = events.next_if(|e| !matches!(e, E::End(_))) else {
+                break;
+            };
+
+            // Parse based on the event we got (know it's not text or container end based on previous checks)
+            let elem = match e {
+                E::Start(C::Link(url, LinkType::Span(SpanLinkType::Inline)), _) => {
+                    let text = InlineElement::parse_many(events)?;
+                    assert_container_end!(events, C::Link(_, _));
+                    Self::Link {
+                        href: url.to_string(),
+                        text,
+                    }
+                }
+                E::Start(C::Emphasis, _) => {
+                    let text = InlineElement::parse_many(events)?;
+                    assert_container_end!(events, C::Emphasis);
+                    Self::Emph { text }
+                }
+                E::Start(C::Verbatim, _) => {
+                    // Get contents (must be just one string, will fail on next element otherwise)
+                    let Some(content) = InlineElement::parse_text(events) else {
+                        bail!("Invalid code block contents")
+                    };
+                    assert_container_end!(events, C::Verbatim);
+                    Self::InlineCode { content }
+                }
+                E::Start(C::Image(src, SpanLinkType::Inline), _) => {
+                    // Get alt text, erroring on end assert if it's not just plain text.
+                    let Some(alt) = InlineElement::parse_text(events) else {
+                        bail!("No alt text found for image")
+                    };
+                    assert_container_end!(events, C::Image(_, _));
+                    Self::Image {
+                        src: src.to_string(),
+                        alt,
+                    }
+                }
+                _ => bail!("Got invalid/unsupported event while parsing inline event: {e:?}"),
+            };
+            elements.push(elem);
+        }
+
+        Ok(elements)
+    }
+    /// Parses a string from non-container events, combining various special characters with adjacent text.
+    ///
+    /// Returns `None` if no text is present (a container started or the file/container ended).
+    fn parse_text(events: &mut Peekable<jotdown::Parser>) -> Option<String> {
+        type E<'s> = jotdown::Event<'s>;
+        // Keep parsing and building string until we see non-text.
+        let mut result = String::new();
+        loop {
+            let Some(e) = events.peek() else {
+                break;
+            };
+            // Extract string, or break
+            let text = match e {
+                E::Str(text) => &text,
+                E::EnDash => "–",
+                E::EmDash => "—",
+                E::LeftDoubleQuote => "“",
+                E::RightDoubleQuote => "”",
+                E::LeftSingleQuote => "'",
+                E::RightSingleQuote => "'",
+                _ => break,
+            };
+            result.push_str(text);
+            // Move to the next event
+            events.next();
+        }
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
 }
