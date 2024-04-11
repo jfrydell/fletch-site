@@ -3,7 +3,7 @@
 <title>Thread-Safety of ESP32 SPI Driver</title>
 <url>aerospithreadsafety</url>
 <date>2024-04-09T18:00:00</date>
-<visibility>0</visibility>
+<visibility>1</visibility>
 <content><![CDATA[
 Last week, I was working on the firmware for a [rocket payload's](https://dukerocketry.com/) flight computer, when I encountered an intermittent crash occuring within 5 to 35 seconds of rebooting the ESP32 microcontroller I was using. Because I had just refactored various components into FreeRTOS tasks to take advantage of the ESP32's two cores, I was highly suspicious of a data race or other thread safety issue in the code.
 
