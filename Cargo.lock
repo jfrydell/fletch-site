@@ -715,7 +715,6 @@ dependencies = [
  "ed25519-dalek",
  "futures",
  "gophermap",
- "http-body",
  "hyper",
  "jotdown",
  "notify",

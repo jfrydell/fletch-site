@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Phase-Locked Loops, Part 1</title>
+<url>pll1</url>
+<date>2024-04-21T18:00:00</date>
+<visibility>1</visibility>
+<content><![CDATA[
+I've been reading recently about [phase-locked loops](https://en.wikipedia.org/wiki/Phase-locked_loop) (PLLs), after seeing them referenced a few different contexts. For my own reference and understanding, I'm writing a few posts about what PLLs are and how they work. (Note: I am by no means an expert on this subject—quite the opposite, in fact—so please [let me know](/contact) if I've missed/misunderstood something.)
+
+To start, we'll look at what a PLL does and why it could be useful. As the name implies, a PLL produces an output signal that is somehow _locked_ to the _phase_ of the input, using some kind of feedback _loop_. To borrow an analogy from the [Wikipedia page](https://en.wikipedia.org/wiki/Phase-locked_loop#Clock_analogy), the function of a PLL is similar to the owner of a mechanical clock making slight adjustments to their clock's frequency to stay in sync with another clock. If their clock falls behind, they adjust the frequency higher, and if it runs ahead, they adjust it lower. After enough observations and small adjustments, the frequencies will match exactly, ticking in lockstep.
+
+Translating this to electrical signals, we can imagine a PLL taking some clock signal (i.e. a square wave of some fixed frequency) as an input, and attempting to produce an output signal of the same frequency. If the output falls behind the input (measured by the phase difference between signals, hence the naming), the frequency can be increased to remain in sync. Inversely, if the output is ahead (with phase difference in the opposite direction), the frequency can be reduced. In the next few posts, we'll look at how these frequency adjustments can be made.
+
+However, when applied to digital clocks, there's clearly something missing here: why would we need a complex circuit to produce an output with the same frequency/phase as the input, when a simple wire (or [buffer](https://en.wikipedia.org/wiki/Digital_buffer), if you're feeling fancy) already forwards the input straight to the output? While keeping two separate mechanical clocks in sync is very useful, the same seems less true for easily-copied digital signals.
+
+There are two main ideas that make this useful. First, rather than taking a perfect clock signal as an input, a signal whose edges, when they occur, are aligned to the desired frequency will suffice. This is the idea behind "clock extraction," where a synchronized clock is generated, using a PLL, from a data signal. Second, rather than observing the output and comparing to the input to determine how to adjust the frequency, we can compare _some function_ of the generated signal. For example, we could add a simple [frequency divider](https://en.wikipedia.org/wiki/Frequency_divider#Digital) to our feedback loop, using the PLL to match the input frequency to the divided output, producing an undivided output frequency that is a multiple of the input.
+
+In the next few posts, I'll look into the components that make up a PLL, how these internal components work, and perhaps an example of a full PLL in a larger circuit.
+]]></content>
+</blogpost>
