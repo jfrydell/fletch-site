@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>TODO: title</title>
+<url>signedoverflowUB</url>
+<date>2024-04-28T18:00:00</date>
+<visibility>0</visibility>
+<content><![CDATA[
+TODO: Signed overflow UB and loop optimization
+]]></content>
+</blogpost>
