@@ -8,12 +8,22 @@
 {% endblock %}
 
 {% block content %}
-<main class="max-w-screen-lg p-4 mx-auto">
-  <header class="mx-auto mb-1">
+<main class="max-w-screen-lg p-4 mx-auto space-y-5">
+  <header class="mx-auto">
     <h2 class="text-3xl">{{ post.title }}</h2>
     <p class="text-gray-600 dark:text-gray-400">{{ post.date | split(pat="T") | first }}</p>
   </header>
   {{ self::render(content = post.content.content) }}
+  {%- if post.content.footnotes | length > 0 -%}
+  <footer>
+    <hr>
+    <ol class="list-decimal pl-4">
+    {%- for footnote in post.content.footnotes -%}
+        <li id="fn-def-{{ footnote[0] }}" class="pl-1">{{ self::render(content = footnote[1]) }}</li>
+    {%- endfor -%}
+    </ol>
+  </footer>
+  {%- endif -%}
 </main>
 {% endblock content %}
 
@@ -21,9 +31,9 @@
 {% macro render(content) %}
 {%- for element in content -%}
 {%- if element.t == "paragraph" -%}
-<p class="mb-6">{{ self::render_text(text = element.text) }}</p>
-{%- elif element["c"] -%}
-{{ element.c['@lead'] }}<code class="bg-zinc-200 dark:bg-zinc-700">{{ element.c["$text"] }}</code>{{ element.c['@trail'] }}
+<p class="leading-7">{{ self::render_text(text = element.text) }}</p>
+{%- elif element.t == "code" -%}
+<pre class="bg-zinc-200 dark:bg-zinc-700"><code>{{ element.content }}</code></pre>
 {%- else -%}
 {{ VARIANT_DOESNT_EXIST[element.t] }}
 {%- endif -%}
@@ -44,6 +54,8 @@
 <code class="bg-zinc-200 dark:bg-zinc-700">{{ element.content }}</code>
 {%- elif element.t == "image" -%}
 <img class="block my-4 mx-auto" alt="{{ element.alt }}" src="/images/{{ element.src }}" />
+{%- elif element.t == "footnote_ref" -%}
+<sup id="fn-ref-{{ element.tag }}"><a href="#fn-def-{{ element.tag }}" class="underline">{{element.number}}</a></sup>
 {%- else -%}
 {{ TEXT_VARIANT_DOESNT_EXIST[element.t] }}
 {%- endif -%}

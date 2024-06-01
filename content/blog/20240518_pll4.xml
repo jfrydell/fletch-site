@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Phase-Locked Loops, Part 4: Voltage-Controlled Oscillators</title>
+<url>pll4</url>
+<date>2024-05-30T18:00:00</date>
+<visibility>1</visibility>
+<content><![CDATA[
+_This post is part of [a series](/blog/pll1) on Phase Locked Loops (PLLs)._
+
+As we've discussed in the last few posts, a PLL is a circuit that adjusts an output signal's frequency to match an input. To do this, perhaps the most obvious thing it must do is produce an oscillating output signal! This is the domain of the _voltage-controlled oscillator_, or VCO.
+
+More specifically, a VCO takes in some input voltage and produces (ideally) a perfect sine wave with a frequency varying with the input voltage. Of course, the VCO will necessarily have some built-in range of frequencies it can produce (ranging from the output when the input is low to the output when the input is high), and will be most sensitive to a changing input near the center of this range.[^sensitivity] The PLL as a whole will only be able to produce output signals in this range, and will be most effective at this central frequency, making the VCO's frequency range its most important parameter.
+
+Before we look at varying frequency with voltage, however, let's start with a brief look at a few fixed-frequency oscillator designs. Requiring only basic knowledge of circuits, there are two I'll look at today: LC oscillators and ring oscillators.
+
+LC oscillators are a familiar component of any basic circuits class, but their operating principle should be intuitive to anyone who's seen (or [been](https://en.wikipedia.org/wiki/Bungee_jumping)) an oscillating mass on a spring. Just like a mass has energy when it's in motion, an inductor (L) stores energy as current moves through it. Likewise, just as a spring holds energy based on its length, a capacitor (C) stores energy based on the charge built up. When these are connected in a loop, the energy flows back and forth, and the voltage across either element oscillates.
+
+Of course, just as an oscillating mass on a spring will gradually slow (or more precisely, decrease in amplitude) to a halt, a circuit with only an inductor and capacitor will not continue oscillating forever. To fix this, an amplifier is added, which prevents the amplitude of oscillations from decaying. In fact, LC oscillators are traditionally analyzed somewhat opposite to how I presented it here—we start with an amplifier feeding into itself, then add an LC filter to the feedback loop so only the resonant frequency of the LC circuit is in positive feedback. The oscillation frequency of such a circuit can be found with the [Barkhausen stability criterion](https://en.wikipedia.org/wiki/Barkhausen_stability_criterion).
+
+The second type of oscillator will be familiar to anyone who's created a [redstone torch clock](https://minecraft.wiki/w/Redstone_circuits/Clock#Torch_clock) in Minecraft. If we create a loop out of an odd number of inverters (either redstone torches or CMOS inverters), any transition will propogate around the loop forever, as the signal arrives back at its starting point inverted. If our inverters were ideal (as redstone torches are), we'd get a perfect square wave; in reality, we are almost by definition operating above the digital operating frequency of the inverters (for small numbers of inverters).
+
+Compared to the LC oscillator, a ring oscillator is usually significantly faster, and supports a much wider range of frequencies when used in a VCO. However, it also suffers from significantly more noise, both in high sensitivity to power supply voltage and in large amounts of "phase noise" representing the output including some spillover into nearby frequencies (a wide skirt in the frequency domain).
+
+To vary the oscillator frequency, one useful component is the [varactor diode](https://en.wikipedia.org/wiki/Varicap), or varicap, which is a voltage-controlled capacitor. Despite functioning as a capacitor, a varicap is actually a diode, reverse-biased so no current flows. In reverse bias, the pn junction at the center of a diode builds up a depletion region as bias increases. This depletion region acts as the dielectric of a capacitor, with decreasing reverse bias voltage creating a thinner depletion region and therefore a greater capacitance.
+
+In an LC oscillator, replacing the capacitor with a varicap allows the resonance (and therefore oscillation) frequency to be tuned. Because the biased inputs of the varicap are also the capacitor leads, a larger DC-blocking capacitor must be placed in series with the varicap. Unfortunately, a varicap's possible range is usually limited to around a single order of magnitude, leading to an LC oscillator VCO having only a small range of possible output frequencies (note that the capacitance is square-rooted in resonance frequency calculation).
+
+For a ring oscillator, there are a few more options for tuning frequency. First, a varacter can once again be used, this time to introduce a capacitive load on each gate in the ring. However, this is still subject to the limits in varicap range (thought not as much as the LC oscillator, as this capacitor behaves more like an RC circuit with linearly-varying time constant). In a similar vein, variable load resistors can be used at each stage of the ring oscillator.
+
+However, a more effective way of changing the ring oscillator frequency is to vary the supply voltage of the inverters. When the supply voltage rises for a fixed transistor, each transistor sees a greater gate-source voltage when turned on, which causes a quadratic increase in saturation current and therefore reduces gate delays.
+
+In practice, the story is much more complicated, as the same sensitivity to supply voltage that gives CMOS inverter ring oscillator its tunability also causes supply variation to be a huge concern. For (a lot) more details on ring oscillators, see [this article](http://www.seas.ucla.edu/brweb/papers/Journals/BR_SSCM_4_2019.pdf).
+
+As far as PLLs go, I think that's a good place to wrap up this exploration. Much of the research for this series of posts began with [Professor Palermo's lecture notes](https://people.engr.tamu.edu/spalermo/ecen620.html) at Texas A&M, and I'd recommend going there for a more in-depth and accurate overview of PLLs. However, it's been fun to at least scratch the surface of how PLLs work, going from "mutiplying a clock doesn't seem possible" to a decent understanding of the mechanisms and challenges involved.
+
+As always, if you have any correction/feedback, please [shoot me a message](/contact).
+
+[^sensitivity]: Note that in addition to a large frequency range increasing the usable range of the PLL, higher sensitivity to small changes to the input voltage increases the overall precision of the PLL's lock. At the limit, an infinitely sensitive VCO effectively forces the phase detector's output (and therefore the phase difference itself) to a fixed value, modulating the output as much as is necessary for this to occur. Any inelasticity in the VCO's response means an equilibrium will be reached at a different voltage (and phase) depending on frequency.
+]]></content>
+</blogpost>

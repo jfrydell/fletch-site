@@ -162,6 +162,7 @@ img {
     flex-grow: 1;
 }
 
-code {
+code,
+pre {
     background-color: #333;
 }

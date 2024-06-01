@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>Phase-Locked Loops, Part 3: Loop Filters</title>
+<url>pll3</url>
+<date>2024-05-07T18:00:00</date>
+<visibility>1</visibility>
+<content><![CDATA[
+_This post is part of [a series](/blog/pll1) on Phase Locked Loops (PLLs)._
+
+A PLL's goal is to match the frequency of its output signal to that of an input. To do this, it uses the measurement from the phase detector [we've discussed previously](/blog/pll2) to adjust an oscillator. This phase detector output comes in the form of discrete pulses, the widths of which are roughly proportinal to the difference in input and output frequencies/phases. However, this constantly-varying signal is difficult to work with for the oscillator, so we need some kind of filter to produce an analog output.
+
+Because we want to extract the average value of the phase detector's pulses, the loop filter is just a low pass filter of some kind. In fact, just a passive RC lowpass filter will suffice to get the signal we need. However, the precise paramters of this filter will _greatly_ affect the performance and stability of our PLL as a whole.
+
+To see why, let's look (informally, see [here](https://web.ece.ucsb.edu/~long/ece594a/PLL_intro_594a_s05.pdf) for a more formal treatment) at how the loop filter cutoff frequency affects the PLL. When the loop filter cutoff is high (at the limit, as it approaches the input/output frequency), noise in the phase detector or feedback from the oscillator may pass through the filter and appear in the output of the PLL. However, a high frequency also ensures the PLL will respond to any signal from the phase detector, ensuring the PLL will lock (i.e. maintain stability).
+
+Conversely, a low loop filter frequency ensures any phase noise is filtered out, creating a cleaner output of the PLL. However, as you attenuate the feedback from the phase detector, you also run the risk of losing stability when the frequency difference between your input and output is large—this decreases the so-called "capture range" of the PLL, the range of frequencies the PLL can lock to. Intuitively, as you narrow the range of frequencies your loop filter is sensitive to, you lower the range of frequency differences the PLL as a whole can react to.
+
+Despite these two competing effects of loop filter frequency, it is actually possible to create a PLL loop filter with the noise filtering of a low cutoff frequency _and_ the stability range of a high cutoff frequency. To do this, we simply introduce a second frequency by adding another resistor to our baseline RC lowpass filter. This causes the filter's transfer function to gain a [zero in addition to its pole](https://www.allaboutcircuits.com/technical-articles/understanding-poles-and-zeros-in-transfer-functions/), a frequency beyond which the filter's attenuation lessens.
+
+When this is done, a low pole frequency can ensure noise is mostly filtered out, but a high zero frequency allows the filter to remain sensitive enough to high frequencies to maintain PLL stability for a large frequency range. In doing so, we gain the best of both world, and perhaps most importantly, have a filter with far more _tunability_ to our application requirements.
+
+Ultimately, that's the main thing I found when researching loop filters: getting good performance is more about careful tuning of a simple circuit's parameters for a given application than designing a complex or tricky-to-understand circuit. For the purposes of this series (learning about PLLs), that makes it less interesting than the other components—it's just a low pass filter. I'm sure many people would disagree, including the authors of [all](https://www.electronics-notes.com/articles/radio/pll-phase-locked-loop/pll-loop-filter.php) [the](https://community.infineon.com/gfawx74859/attachments/gfawx74859/psoc135/12688/1/Demystifying-the-PLL.pdf) [fantastic](https://www.n5dux.com/ham/files/pdf/Phase%20Lock%20Loop%20Stability%20Analysis.pdf) [articles](https://people.engr.tamu.edu/spalermo/ecen620/lecture06_ee620_loop_filters.pdf) [that](https://www.analog.com/en/resources/analog-dialogue/articles/phase-locked-loop-pll-fundamentals.html) [went](https://www.renesas.cn/cn/zh/document/apn/pll-loop-filter-design-and-fine-tuning) [into](https://www.ti.com/lit/ml/snap003/snap003.pdf) [this](https://dsp.stackexchange.com/questions/82694/how-are-loop-filters-derived), but I'm just trying to understand the basics of how a PLL works. So, if you're willing to brave the transfer functions, I'd refer to any of those links for the true details of loop filter design.
+
+Next time, we'll look at the final part of a PLL: the oscillator that produces our signal.
+]]></content>
+</blogpost>

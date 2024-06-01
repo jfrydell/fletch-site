@@ -1,8 +1,12 @@
-use std::{collections::HashMap, iter::Peekable};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::Peekable,
+};
 
 use chrono::NaiveDateTime;
 use color_eyre::{eyre::bail, Result};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 /// One blog post and all of its content and metadata.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,6 +35,10 @@ pub enum Tag {
 pub struct Content {
     /// The body of the content, consisting of several `Element`s.
     content: Vec<Element>,
+    /// Any footnotes, each containing a tag for cross-referencing and some content.
+    ///
+    /// Should be numbered in order, starting at 1.
+    footnotes: Vec<(String, Vec<Element>)>,
 }
 
 /// Deserialization for blog post content from a string.
@@ -39,15 +47,19 @@ where
     D: serde::Deserializer<'de>,
 {
     // Parse the XML body into a String as-is, then parse as jdot event stream.
-    let raw = String::deserialize(de)?; //.content;
+    let raw = String::deserialize(de)?;
     let mut events = jotdown::Parser::new(&raw).peekable();
-    let elements = Element::parse_many(&mut events)
+    let mut elements = Element::parse_many(&mut events)
         .map_err(|e| serde::de::Error::custom(format!("error deserializing post content: {e}")))?;
 
-    // TODO: number footnotes
-    dbg!(&elements);
+    // Number & footnotes
+    let footnotes = extract_footnotes(&mut elements)
+        .map_err(|e| serde::de::Error::custom(format!("error generating footnotes: {e}")))?;
 
-    Ok(Content { content: elements })
+    Ok(Content {
+        content: elements,
+        footnotes,
+    })
 }
 
 // Utility macro to check ending event matches the given container, bailing if not.
@@ -56,7 +68,7 @@ macro_rules! assert_container_end {
         let e = $e.next();
         match e {
             Some(jotdown::Event::End($c)) => (),
-            _ => bail!("Expected container end, got {e:?}"),
+            _ => bail!("Expected end of container {:?}, got {e:?}", stringify!($c)),
         }
     };
 }
@@ -73,11 +85,7 @@ pub enum Element {
         content: String,
     },
     /// Footnote contents (not to be confused with `FootnoteRef` inline)
-    Footnote {
-        number: i32,
-        tag: String,
-        text: Vec<InlineElement>,
-    },
+    Footnote { tag: String, body: Vec<Element> },
 }
 impl Element {
     /// Parse several `Element`s from an iterator of jotdown events.
@@ -117,13 +125,11 @@ impl Element {
                     Self::Code { lang, content }
                 }
                 E::Start(C::Footnote { label }, _) => {
-                    let text = InlineElement::parse_many(events)?;
-                    assert_container_end!(events, C::Paragraph);
-                    // Set number to 0 for now, top level will set refs and footnotes correctly
+                    let body = Element::parse_many(events)?;
+                    assert_container_end!(events, C::Footnote { .. });
                     Self::Footnote {
-                        number: 0,
                         tag: label.to_string(),
-                        text,
+                        body,
                     }
                 }
                 E::Blankline => continue,
@@ -153,7 +159,7 @@ pub enum InlineElement {
     },
     /// Inline code snippet / verbatim
     InlineCode { content: String },
-    /// Footnote reference
+    /// Footnote reference (must be one-to-one)
     FootnoteRef { number: i32, tag: String },
     /// Embedded image
     Image { src: String, alt: String },
@@ -213,6 +219,10 @@ impl InlineElement {
                         alt,
                     }
                 }
+                E::FootnoteReference(tag) => Self::FootnoteRef {
+                    number: 0,
+                    tag: tag.to_string(),
+                },
                 _ => bail!("Got invalid/unsupported event while parsing inline event: {e:?}"),
             };
             elements.push(elem);
@@ -252,4 +262,79 @@ impl InlineElement {
             Some(result)
         }
     }
+}
+
+/// Numbers footnote references and extracts footnotes, warning if some are unmatched.
+///
+/// Returns a list of the extracted footnotes, numbered starting at 1.
+///
+/// _NOTE: enforces one-to-one mapping of references to footnotes._
+fn extract_footnotes(content: &mut Vec<Element>) -> Result<Vec<(String, Vec<Element>)>> {
+    // Keep list of tags we've seen referenced (in order).
+    let mut seen_referenced = vec![];
+
+    /// Processes an inline-element, updating the map as references are numbered
+    fn number_references(element: &mut InlineElement, seen_referenced: &mut Vec<String>) {
+        match element {
+            InlineElement::FootnoteRef { number, tag } => {
+                *number = seen_referenced.len() as i32 + 1;
+                seen_referenced.push(tag.to_string());
+            }
+            InlineElement::Emph { text } => text
+                .iter_mut()
+                .for_each(|e| number_references(e, seen_referenced)),
+            InlineElement::Link { text, .. } => text
+                .iter_mut()
+                .for_each(|e| number_references(e, seen_referenced)),
+            InlineElement::Text { .. } => {}
+            InlineElement::InlineCode { .. } => {}
+            InlineElement::Image { .. } => {}
+        }
+    }
+
+    // Loop through all elements in the content, extracting footnotes and numbering references.
+    // NOTE: because footnotes can contain arbitrary elements, including nested footnotes,
+    //       this is incomplete. Modify with a recursive helper if we need nested `Element`s.
+    let mut extracted_footnotes = HashMap::new();
+    let mut i = 0;
+    while i < content.len() {
+        let removed_footnote = match &mut content[i] {
+            Element::Footnote { tag, body } => Some((std::mem::take(tag), std::mem::take(body))),
+            Element::Paragraph { text } => {
+                text.iter_mut()
+                    .for_each(|e| number_references(e, &mut seen_referenced));
+                None
+            }
+            Element::Code { .. } => None,
+        };
+        match removed_footnote {
+            Some((tag, body)) => {
+                // This element is a footnote, remove it and add to the map
+                if extracted_footnotes.insert(tag.clone(), body).is_some() {
+                    bail!("Duplicate footnote for tag {tag}")
+                }
+                content.remove(i);
+            }
+            None => {
+                // Not a footnote, move on
+                i += 1;
+            }
+        }
+    }
+
+    // Create a sorted list of extracted footnotes, removing as we go to check one-to-one mapping
+    let mut footnotes = vec![];
+    for tag in seen_referenced {
+        match extracted_footnotes.remove(&tag) {
+            Some(body) => {
+                footnotes.push((tag, body));
+            }
+            None => bail!("No footnote for reference {tag}"),
+        }
+    }
+    // Check we don't have any unreferenced footnotes
+    if let Some((leftover_tag, _)) = extracted_footnotes.iter().next() {
+        bail!("Found unreferenced footnote {leftover_tag}");
+    }
+    Ok(footnotes)
 }

@@ -8,6 +8,16 @@
     <p>{{ post.date | split(pat="T") | first }}</p>
   </header>
   {{ self::render(content = post.content.content) }}
+  {%- if post.content.footnotes | length > 0 -%}
+  <footer>
+  <hr>
+  <ol>
+  {%- for footnote in post.content.footnotes -%}
+    <li id="fn-def-{{ footnote[0] }}">{{ self::render(content = footnote[1]) }}</li>
+  {%- endfor -%}
+  </ol>
+  </footer>
+  {%- endif -%}
 </main>
 {% endblock content %}
 
@@ -16,6 +26,8 @@
 {%- for element in content -%}
 {%- if element.t == "paragraph" -%}
 <p>{{ self::render_text(text = element.text) }}</p>
+{%- elif element.t == "code" -%}
+<pre><code>{{ element.content }}</code></pre>
 {%- else -%}
 {{ VARIANT_DOESNT_EXIST[element.t] }}
 {%- endif -%}
@@ -35,6 +47,8 @@
 <code>{{ element.content }}</code>
 {%- elif element.t == "image" -%}
 <img alt="{{ element.alt }}" src="/images/{{ element.src }}" />
+{%- elif element.t == "footnote_ref" -%}
+<sup id="fn-ref-{{ element.tag }}"><a href="#fn-def-{{ element.tag }}">{{element.number}}</a></sup>
 {%- else -%}
 {{ TEXT_VARIANT_DOESNT_EXIST[element.t] }}
 {%- endif -%}

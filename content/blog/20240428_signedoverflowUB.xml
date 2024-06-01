@@ -1,10 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <blogpost>
-<title>TODO: title</title>
+<title>Optimization Based on UB Integer Overflow</title>
 <url>signedoverflowUB</url>
-<date>2024-04-28T18:00:00</date>
+<date>2024-04-29T18:00:00</date>
 <visibility>0</visibility>
 <content><![CDATA[
-TODO: Signed overflow UB and loop optimization
+Undefined behavior (UB) in programming languages (particular C/C++) is a contentious topic. Probably the best explanations I've seen of what UB is and why it is necessary are [these](https://blog.regehr.org/archives/213) [posts](https://www.ralfj.de/blog/2021/11/18/ub-good-idea.html) by [John Regehr](https://blog.regehr.org/) and [Ralf Jung](https://www.ralfj.de/), and I'll defer you to these for background information on the topic of UB in general. Ultimately, the main takeaway that's important here is that UB can be helpful for compiler optimizations, but cause confusing misbehavior when the compiler takes advantage of UB in subtly incorrect code.
+
+A specific instance of UB that's always confused me ([and](http://blog.pkh.me/p/37-gcc-undefined-behaviors-are-getting-wild.html) [several](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=30475) [others](https://stackoverflow.com/questions/25151602/will-gcc-skip-this-check-for-signed-integer-overflow)) is signed integer overflow: in C/C++, overflow on a signed integer is undefined behavior, so the compiler can assume it does not occur. Unlike many other instances of undefined behavior, most of the optimizations I've seen discussed seemed a bit dubious, such as optimizing `x + 1 > x` to `true` (foiling many attempts to check for overflow) or combining constants in `x + C1 < C2` (saving no more than a couple instructions). While there are theoretically [portability concerns](https://en.wikipedia.org/wiki/Signed_number_representations), making overflow _implementation_ defined instead of _undefined_ (i.e. able to return any value, but cannot be assumed to not occur) would solve these too.
+
+However, I recently encountered a more substantial optimization enabled by undefined integer overflow, demonstrated in the following example:
+
+```
+extern void f(int);
+
+void unoptimized(int a, int b, int c) {
+    for (int i = a; i < b; i++) {
+        f(c * i);
+    }
+}
+
+void optimized(int a, int b, int c) {
+    int start = c * a;
+    int end = c * b;
+    for (int i = start; i < end; i += c) {
+        f(i);
+    }
+}
+```
+
+If the compiler can convert `unoptimized` to `optimized` here, we avoid a multiply on every iteration of the loop.
+
 ]]></content>
 </blogpost>

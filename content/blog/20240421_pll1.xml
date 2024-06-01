@@ -15,6 +15,6 @@ However, when applied to digital clocks, there's clearly something missing here:
 
 There are two main ideas that make this useful. First, rather than taking a perfect clock signal as an input, a signal whose edges, when they occur, are aligned to the desired frequency will suffice. This is the idea behind "clock extraction," where a synchronized clock is generated, using a PLL, from a data signal. Second, rather than observing the output and comparing to the input to determine how to adjust the frequency, we can compare _some function_ of the generated signal. For example, we could add a simple [frequency divider](https://en.wikipedia.org/wiki/Frequency_divider#Digital) to our feedback loop, using the PLL to match the input frequency to the divided output, producing an undivided output frequency that is a multiple of the input.
 
-In the next few posts, I'll look into the components that make up a PLL, how these internal components work, and perhaps an example of a full PLL in a larger circuit.
+In the next few posts, I'll look into the internal pieces that make up a PLL and how these they combine to produce such an interesting and useful component.
 ]]></content>
 </blogpost>
