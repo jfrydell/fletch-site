@@ -1,11 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <blogpost>
-<title>Comments, Feedback, and Contacting</title>
-<url>contactchat</url>
-<date>2024-06-01T18:00:00</date>
+<title>Contact Pages, Feedback Forms, and Comment Sections</title>
+<url>contactcomments</url>
+<date>2024-06-09T18:00:00</date>
 <visibility>0</visibility>
 <content><![CDATA[
-Most personal websites feature
+The internet is full of contact forms. Some are for [prospective clients](https://www.netlify.com/contact/),
+
+![Netlify contact form, with fields for first and last name, email, company, company size, and a text box labelled "how can we help?"](contactpages/netlify.png)
+
+others are for [providing support](https://proton.me/support/contact),
+
+![Proton support form, with fields for topic, email, username, message, and OS and browser name/version.](contactpages/proton.png)
+
+and others are just for [feedback on a personal blog](https://brr.fyi/contact-108498362895).
+
+![Brr.fyi contact form, with fields for name, email, subject, and message.](contactpages/brr.png)
+
+Some are [complex](https://customer.axa.co.uk/eSales/products/eSalesLoop.aspx?action=init&Loop=149&eenq=3) ([angering some users](https://adamjones.me/blog/dont-use-contact-forms/)),
+
+![Axa contact form, asking for full name, surname, policy number, date of birth, postcode, e-mail address, mobile & home phone numbers, a product dropdown, and your question.](contactpages/axa.png)
+
+others are [quite simple](https://jakeseliger.com/contact/).[^emaillink]
+
+![Jake Seliger's contact form, just asking for name, email, and message](contactpages/jakeseliger.png)
+
+[^emaillink]: In fact, when I went looking for these examples, I was surprised to see that most websites were even simpler, just including an email address and/or [mailto link](https://en.wikipedia.org/wiki/Mailto).
+
+These forms all have one thing in common, though—I've never filled one out (with one exception I'll discuss later).
+
+Particularly for individuals' sites and blogs, this seems a pity. I've read a lot of great stuff by a lot of great people online, and I often feel like I owe them some response, at least just to say thanks! But filling out the feedback form (much less sending an email) never feels appropriate. Surely that's just meant for complaints, spam, or "serious" inquiries (though I'm not exactly sure what those would be).
+
+For my own website, I don't want this to be the case. Receiving complaints seems a bit unpleasant, receiving spam is fairly annoying, and, worst of all, any "serious inquiry" sounds like a massive headache to deal with. So, what would I like to receive from (at time of writing non-existent, but now by definition no longer so) readers of my website?
+
+That's simple: anything that you would say in an equivalent real-life scenario, unencumbered by the need to actually talk to me face to face, and slightly emboldened by anonymity (though I do collect IP addresses for rate-limiting). For example, after reading a post, feel free to send anything you might have said or asked after seeing it as an in-person presentation. Or, if you think (either after poking around the website or having briefly met before) you'd enjoy meeting me and/or talking, but wouldn't ever reach out in real life whether due to impracticality or just laziness, consider this your cue to send me a message.
+
+This idea of how my contact form should be used is based completely around my own experiences, so it's possible the above sounds completely ridiculous. If it does, please (you'll never see this coming) send me a message! I'm curious what your thoughts are about website-based contact forms.[^maybenot]
+
+[^maybenot]: Of course, one dissenting opinion you could have is "I don't ever want to contact anyone through a website/blog, and don't see how you'd be so desperate as to want random people contacting you." If that's you, I'm not actually that interested to hear your thoughts, but you're also not interested in sending them, so that works out quite nicely.
+
+To encourage this more casual attitude to contact forms, I tried to minimize friction as much as possible in the form itself. There's only one input (not counting the send button), so just type your message there and click send! This will start a new "thread" of messages, where you can see my reply once I send one. Each thread has a unique ID you can use to send/receive new messages [via HTTPS or SSH](https://fletchrydell.com/projects/website), and all threads you've created are stored in [your browser](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) for easy access. At the time of writing, the form is only available on the [contact page](/contact), but I'm planning on adding it to other pages as well for easier access.
+
+This commenting philosophy / contact form was inspired by several other similar systems (it turns out I didn't invent the idea of "online discussion"). I'll go over a few of them here:
+
+*Comment Sections (Internal)*: Of course, the most obvious place for comments to go is helpfully called the _comments_ section. However, I never post in these either, and [many others are in the same boat](https://en.wikipedia.org/wiki/1%25_rule).
 
 ]]></content>
 </blogpost>

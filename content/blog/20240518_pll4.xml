@@ -33,7 +33,7 @@ In practice, the story is much more complicated, as the same sensitivity to supp
 
 As far as PLLs go, I think that's a good place to wrap up this exploration. Much of the research for this series of posts began with [Professor Palermo's lecture notes](https://people.engr.tamu.edu/spalermo/ecen620.html) at Texas A&M, and I'd recommend going there for a more in-depth and accurate overview of PLLs. However, it's been fun to at least scratch the surface of how PLLs work, going from "mutiplying a clock doesn't seem possible" to a decent understanding of the mechanisms and challenges involved.
 
-As always, if you have any correction/feedback, please [shoot me a message](/contact).
+As always, if you have any correction/feedback, please [shoot me a message](/contact)!
 
 [^sensitivity]: Note that in addition to a large frequency range increasing the usable range of the PLL, higher sensitivity to small changes to the input voltage increases the overall precision of the PLL's lock. At the limit, an infinitely sensitive VCO effectively forces the phase detector's output (and therefore the phase difference itself) to a fixed value, modulating the output as much as is necessary for this to occur. Any inelasticity in the VCO's response means an equilibrium will be reached at a different voltage (and phase) depending on frequency.
 ]]></content>
