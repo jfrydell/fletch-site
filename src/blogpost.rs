@@ -1,12 +1,8 @@
-use std::{
-    collections::{HashMap, HashSet},
-    iter::Peekable,
-};
+use std::{collections::HashMap, iter::Peekable};
 
 use chrono::NaiveDateTime;
 use color_eyre::{eyre::bail, Result};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 /// One blog post and all of its content and metadata.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -151,6 +147,8 @@ pub enum InlineElement {
     Text { content: String },
     /// Emphasized text
     Emph { text: Vec<InlineElement> },
+    /// Strongly emphasized text
+    Strong { text: Vec<InlineElement> },
     /// A link to some URL (links to tags unsupported)
     Link {
         href: String,
@@ -199,6 +197,11 @@ impl InlineElement {
                     let text = InlineElement::parse_many(events)?;
                     assert_container_end!(events, C::Emphasis);
                     Self::Emph { text }
+                }
+                E::Start(C::Strong, _) => {
+                    let text = InlineElement::parse_many(events)?;
+                    assert_container_end!(events, C::Strong);
+                    Self::Strong { text }
                 }
                 E::Start(C::Verbatim, _) => {
                     // Get contents (must be just one string, will fail on next element otherwise)
@@ -281,6 +284,9 @@ fn extract_footnotes(content: &mut Vec<Element>) -> Result<Vec<(String, Vec<Elem
                 seen_referenced.push(tag.to_string());
             }
             InlineElement::Emph { text } => text
+                .iter_mut()
+                .for_each(|e| number_references(e, seen_referenced)),
+            InlineElement::Strong { text } => text
                 .iter_mut()
                 .for_each(|e| number_references(e, seen_referenced)),
             InlineElement::Link { text, .. } => text

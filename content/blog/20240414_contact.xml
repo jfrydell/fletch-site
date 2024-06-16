@@ -2,8 +2,8 @@
 <blogpost>
 <title>Contact Pages, Feedback Forms, and Comment Sections</title>
 <url>contactcomments</url>
-<date>2024-06-09T18:00:00</date>
-<visibility>0</visibility>
+<date>2024-06-15T18:00:00</date>
+<visibility>1</visibility>
 <content><![CDATA[
 The internet is full of contact forms. Some are for [prospective clients](https://www.netlify.com/contact/),
 
@@ -17,23 +17,23 @@ and others are just for [feedback on a personal blog](https://brr.fyi/contact-10
 
 ![Brr.fyi contact form, with fields for name, email, subject, and message.](contactpages/brr.png)
 
-Some are [complex](https://customer.axa.co.uk/eSales/products/eSalesLoop.aspx?action=init&Loop=149&eenq=3) ([angering some users](https://adamjones.me/blog/dont-use-contact-forms/)),
+Some are [complex](https://customer.axa.co.uk/eSales/products/eSalesLoop.aspx?action=init&Loop=149&eenq=3),
 
 ![Axa contact form, asking for full name, surname, policy number, date of birth, postcode, e-mail address, mobile & home phone numbers, a product dropdown, and your question.](contactpages/axa.png)
 
-others are [quite simple](https://jakeseliger.com/contact/).[^emaillink]
+(much to the [chagrin](https://adamjones.me/blog/dont-use-contact-forms/) of many), others are [quite simple](https://jakeseliger.com/contact/).[^emaillink]
 
 ![Jake Seliger's contact form, just asking for name, email, and message](contactpages/jakeseliger.png)
 
 [^emaillink]: In fact, when I went looking for these examples, I was surprised to see that most websites were even simpler, just including an email address and/or [mailto link](https://en.wikipedia.org/wiki/Mailto).
 
-These forms all have one thing in common, though—I've never filled one out (with one exception I'll discuss later).
+These forms all have one thing in common, though—I've never filled them out, nor any similar contact form (with one exception I'll discuss later).
 
 Particularly for individuals' sites and blogs, this seems a pity. I've read a lot of great stuff by a lot of great people online, and I often feel like I owe them some response, at least just to say thanks! But filling out the feedback form (much less sending an email) never feels appropriate. Surely that's just meant for complaints, spam, or "serious" inquiries (though I'm not exactly sure what those would be).
 
 For my own website, I don't want this to be the case. Receiving complaints seems a bit unpleasant, receiving spam is fairly annoying, and, worst of all, any "serious inquiry" sounds like a massive headache to deal with. So, what would I like to receive from (at time of writing non-existent, but now by definition no longer so) readers of my website?
 
-That's simple: anything that you would say in an equivalent real-life scenario, unencumbered by the need to actually talk to me face to face, and slightly emboldened by anonymity (though I do collect IP addresses for rate-limiting). For example, after reading a post, feel free to send anything you might have said or asked after seeing it as an in-person presentation. Or, if you think (either after poking around the website or having briefly met before) you'd enjoy meeting me and/or talking, but wouldn't ever reach out in real life whether due to impracticality or just laziness, consider this your cue to send me a message.
+That's simple: anything that you would say in an equivalent real-life scenario, unencumbered by the need to actually talk to me face to face, and slightly emboldened by anonymity (though I do collect IP addresses for rate-limiting). For example, after reading a post, feel free to send anything you might have said or asked after seeing it as an in-person presentation. Or, if you think (either after poking around the website or having briefly met before) you'd enjoy meeting me and/or talking, but wouldn't ever reach out in real life whether due to impracticality or laziness, consider this your cue to send me a message.
 
 This idea of how my contact form should be used is based completely around my own experiences, so it's possible the above sounds completely ridiculous. If it does, please (you'll never see this coming) send me a message! I'm curious what your thoughts are about website-based contact forms.[^maybenot]
 
@@ -43,7 +43,26 @@ To encourage this more casual attitude to contact forms, I tried to minimize fri
 
 This commenting philosophy / contact form was inspired by several other similar systems (it turns out I didn't invent the idea of "online discussion"). I'll go over a few of them here:
 
-*Comment Sections (Internal)*: Of course, the most obvious place for comments to go is helpfully called the _comments_ section. However, I never post in these either, and [many others are in the same boat](https://en.wikipedia.org/wiki/1%25_rule).
+*Comment Sections (Internal)*: Of course, the most obvious place for comments to go is the appropriately-named _comments_ section, often visible right at the bottom of the page. However, these usually have much higher friction than I'd like, preventing casual commenting. Some of this friction is procedural, coming from the requirement to make an account and share my email with yet another website. There's a deeper friction, though, unfixable by a smoother experience: a comment posted for the world to see can feel more like a published response than an informal comment. Leaving a public comment right below a post's content feels to me like the online equivalent of audience members taking the stage to share their thoughts after a presentation—this could bring some fantastic responses in the right environment, but it encourages only those who feel they have something significant to add as well as the confidence to share it.
 
+While the prominent exposure of comment sections may scare off those who fear their comment not polished or profound enough for publication, it also invites those who want to reach an audience however possible, regardless of relevance: scammers, spammers, self-promoters, and/or bots. Maintaining a pleasant comment section on your website means committing to moderation and/or increasing friction to make commenting less worthwhile.[^small] While the same thing can occur in my own contact box, the only moderation needed is me deleting pointless messages like I would over any other medium, and me neglecting this affects only my own inbox.
+
+[^small]: I also could try utilizing the technique of being too small for comments to have any real reach, but my experience is the bots don't care to check.
+
+*Comment Sections (External)*: Most of the comments I _read_ are on aggregators like [Hacker News](https://news.ycombinator.com/) or [Lobsters](https://lobste.rs), which feature their own comment sections and communities. Compared to a site's built-in comment section, these eliminate much of the friction, as many (or at least some) users are logged in and ready to comment and discuss posted articles. However, the [1% rule](https://en.wikipedia.org/wiki/1%25_rule) states that the vast majority of people in these communities do not participate. Also, those that do comment are perhaps even more focused on publishing a meaningful response for other commenters to read, given the systems of comment rating/ranking and of long threads of replies often distant from the post's topic.
+
+To be clear, I'm a big fan of these external comment sections and the insights so many contributors share on them, but they clearly attract a different type of comment than the more casual, individual responses I'm after. Occasionally you'll see a few short responses to the poster at the bottom of a large comment section, but these external sites never feel to me like the right place for these more personal responses, both when reading them or considering posting one.
+
+*Email*: Email is probably the most standard way to communicate online with an individual, avoiding the public nature of comment sections. However, the fact that email is used for effectively all serious digital communication makes it feel too formal for a random comment to a stranger, perhaps even more so than the contact forms pictured above. It also seems far more natural to me for comments to be tied to the website or post itself, rather than forcing the commenter to find an email address, explain what they're replying to, and hope their email dodges spam filters despite coming from an unknown address.
+
+*Twitter/X, Threads, Fediverse, etc.*: I don't regularly use any of these, but they seem like they'd share many of the problems of comment sections for getting the responses I want, but with the added complexity of personalized networks and recommendation algorithms. Their main advantage is probably cultural, with character limits making short replies acceptable and the algorithm's emphasis on engagement of any kind encouraging them.
+
+*The Janet For Mortals Repl's `report` Function*: This was the most direct motivation behind my contact box, and is also the one contact form I've "filled out," if you can call it that. [Janet For Mortals](https://janet.guide) is an online book about the [Janet](https://janet-lang.org) programming language. The website includes a Janet [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop), but as the introduction states, it "is also a portal into conversation with me, the author," through the `report` function, which takes a string and sends it to the author.
+
+I _love_ this concept, and it seems to take my favorite qualities from each commenting mechanism I've looked at. Like email, it goes directly to the author without the need to publish your response publically. Like a website comment section, it's tightly integrated into the website, and even improves upon this integration by skipping any account setup. Like much of social media, it allows for short, casual responses due to its format (nobody expects several paragraphs in the REPL). It also showcases the strength of unique systems: people are excited by the novelty of it, and the author can set expectations by encouraging everyone to send a short message to try it out.
+
+There is one thing the REPL is missing from my perspective, which I've added to my message box. One of the great strengths of online interaction is the ability to have asynchronous conversations over hours or days, with new replies able to wait until you're ready for them. While adding an interface for replies to a REPL is hard/impossible, it's far simpler for a contact page. As mentioned earlier, every new message you send on my site starts a new "thread," where you can wait for my reply.
+
+So, if you've made it this far, why don't you give it a try? Just [click here](/contact) (I'll add the box to each post soon) and let me know what you think!
 ]]></content>
 </blogpost>

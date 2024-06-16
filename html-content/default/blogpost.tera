@@ -50,6 +50,8 @@
   self::render_text(text = element.text) }}</a>
 {%- elif element.t == "emph" -%}
 <em>{{ self::render_text(text = element.text) }}</em>
+{%- elif element.t == "strong" -%}
+<strong>{{ self::render_text(text = element.text) }}</strong>
 {%- elif element.t == "inline_code" -%}
 <code class="bg-zinc-200 dark:bg-zinc-700">{{ element.content }}</code>
 {%- elif element.t == "image" -%}
