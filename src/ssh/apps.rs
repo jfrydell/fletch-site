@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 
-use tracing::warn;
+use tracing::debug;
 
 use super::{
     content::{File, SshContent},
@@ -245,7 +245,7 @@ impl<'a> RunningApp for Vim<'a> {
                 self.update_cursor()
             }
             _ => {
-                warn!("data '{data:?}' not implemented for vim");
+                debug!("data '{data:?}' not implemented for vim");
                 vec![]
             }
         }

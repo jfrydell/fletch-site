@@ -46,6 +46,16 @@ impl SshContent {
             );
         }
 
+        // Add blog directory
+        let blog_i = result.add_child(0, "blog".to_string());
+        for post in content.blog_posts.iter() {
+            result.add_file(
+                blog_i,
+                format!("{}_{}.txt", post.date.date().format("%Y%m%d"), post.url),
+                File::new(post.to_string().replace('\n', "\r\n")),
+            );
+        }
+
         Ok(result)
     }
     /// Gets the directory at the given index.

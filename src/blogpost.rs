@@ -344,3 +344,71 @@ fn extract_footnotes(content: &mut Vec<Element>) -> Result<Vec<(String, Vec<Elem
     }
     Ok(footnotes)
 }
+
+// Display implementation for converting posts to strings
+impl std::fmt::Display for BlogPost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            title,
+            url,
+            date,
+            content,
+            visibility: _,
+            tags: _,
+        } = self;
+        writeln!(f, "=== {} ===", title)?;
+        writeln!(f, "https://{}/projects/{}", crate::CONFIG.domain, url)?;
+        writeln!(f, "{}", date.date())?;
+        writeln!(f, "\n{}", content)
+    }
+}
+impl std::fmt::Display for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self { content, footnotes } = self;
+        writeln!(f, "{}", content.to_string())?;
+        if !footnotes.is_empty() {
+            writeln!(f, "Footnotes:")?;
+            for (i, note) in footnotes.iter().enumerate() {
+                write!(f, "[^{}]: {}", i + 1, note.1.to_string())?;
+            }
+        }
+        Ok(())
+    }
+}
+impl std::fmt::Display for Element {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Element::Paragraph { text } => writeln!(f, "{}", text.to_string()),
+            Element::Code { content, .. } => writeln!(f, "```\n{content}\n```"),
+            Element::Footnote { .. } => writeln!(f, "BUG: footnote"),
+        }
+    }
+}
+impl std::fmt::Display for InlineElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InlineElement::Text { content } => write!(f, "{content}"),
+            InlineElement::Emph { text } => write!(f, "_{}_", text.to_string()),
+            InlineElement::Strong { text } => write!(f, "*{}*", text.to_string()),
+            InlineElement::Link { href, text } => write!(f, "[{}]({href})", text.to_string()),
+            InlineElement::InlineCode { content } => write!(f, "`{content}`"),
+            InlineElement::FootnoteRef { number, .. } => write!(f, "[{number}]"),
+            InlineElement::Image { src, alt } => write!(f, "<Image: {alt} ({src})>"),
+        }
+    }
+}
+trait VecFormat {
+    fn to_string(&self) -> String;
+}
+impl VecFormat for Vec<Element> {
+    fn to_string(&self) -> String {
+        self.iter()
+            .map(|e| e.to_string() + "\n")
+            .collect::<String>()
+    }
+}
+impl VecFormat for Vec<InlineElement> {
+    fn to_string(&self) -> String {
+        self.iter().map(|e| e.to_string()).collect::<String>()
+    }
+}
