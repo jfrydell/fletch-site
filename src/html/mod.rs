@@ -16,6 +16,7 @@ use tracing::{debug, error, info, warn};
 mod contact;
 mod defaulthtml;
 mod fancyhtml;
+mod feed;
 mod simplehtml;
 
 /// Runs the HTML service, given a broadcast channel to notify it of content changes.
@@ -155,7 +156,16 @@ impl HtmlServer {
             )
             .nest("/defaulthtml", defaulthtml::Content::router())
             .nest("/simplehtml", simplehtml::Content::router())
-            .nest("/fancyhtml", fancyhtml::Content::router());
+            .nest("/fancyhtml", fancyhtml::Content::router())
+            .route(
+                "/feed",
+                get(|State(server): State<Arc<Self>>| async move {
+                    (
+                        [(hyper::header::CONTENT_TYPE, "application/xml")],
+                        server.content.read().await.feed.atom(),
+                    )
+                }),
+            );
         // Add websocket handler if live reload is enabled
         if crate::CONFIG.live_reload {
             router = router.route("/ws", get(Self::ws_handler));
@@ -344,6 +354,7 @@ struct HtmlContent {
     pub default: defaulthtml::Content,
     pub simple: simplehtml::Content,
     pub fancy: fancyhtml::Content,
+    pub feed: feed::Feed,
 }
 
 impl HtmlContent {
@@ -353,6 +364,7 @@ impl HtmlContent {
             default: defaulthtml::Content::new(content)?,
             simple: simplehtml::Content::new(content)?,
             fancy: fancyhtml::Content::new(content)?,
+            feed: feed::Feed::new(content)?,
         })
     }
 
@@ -362,6 +374,7 @@ impl HtmlContent {
         self.default.refresh(content)?;
         self.simple.refresh(content)?;
         self.fancy.refresh(content)?;
+        self.feed.refresh(content)?;
         Ok(())
     }
 }
