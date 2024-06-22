@@ -8,6 +8,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Titillium+Web">
+  <link rel="alternate" type="application/atom+xml" href="/feed">
   <style>
     body {
       font-family: 'Titillium Web', sans-serif;
@@ -26,7 +27,7 @@
     <p class="text-xl p-5 pb-10 font-thin tracking-wide" id="main-subtitle">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
-  
+
   {% if not index_info %}
   <nav class="w-full p-2 flex flex-row font-light font-sans text-white">
     <a href="/" class="p-2 hover:text-sky-400">Home</a>
@@ -35,7 +36,7 @@
     <a href="/themes" class="p-2 hover:text-sky-400">Change Theme</a>
   </nav>
   {% endif %}
-  
+
 
   {% block content %}{% endblock content %}
 </body>
