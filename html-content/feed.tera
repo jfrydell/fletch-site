@@ -25,8 +25,8 @@
         {%- endif -%}
     ]]></content>
 </entry>
-</feed>
 {% endfor %}
+</feed>
 
 {# Renders an array of `Element` enums #}
 {% macro render(content) %}
