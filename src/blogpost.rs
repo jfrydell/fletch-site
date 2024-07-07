@@ -80,6 +80,12 @@ pub enum Element {
         lang: Option<String>,
         content: String,
     },
+    /// Heading, with a level (1-3)
+    Heading {
+        text: Vec<InlineElement>,
+        level: i32,
+        id: String,
+    },
     /// Footnote contents (not to be confused with `FootnoteRef` inline)
     Footnote { tag: String, body: Vec<Element> },
 }
@@ -103,6 +109,18 @@ impl Element {
                     let text = InlineElement::parse_many(events)?;
                     assert_container_end!(events, C::Paragraph);
                     Self::Paragraph { text }
+                }
+                E::Start(C::Heading { level, id, .. }, _) => {
+                    if !(1..=3).contains(&level) {
+                        bail!("Invalid heading level {level}");
+                    }
+                    let text = InlineElement::parse_many(events)?;
+                    assert_container_end!(events, C::Heading { .. });
+                    Self::Heading {
+                        text,
+                        level: level as i32,
+                        id: id.to_string(),
+                    }
                 }
                 E::Start(C::CodeBlock { language }, _) => {
                     // Get lang
@@ -128,10 +146,18 @@ impl Element {
                         body,
                     }
                 }
+                E::Start(C::Section { .. }, _) => {
+                    // We ignore sections
+                    elements.append(&mut Element::parse_many(events)?);
+                    assert_container_end!(events, C::Section { .. });
+                    continue;
+                }
                 E::Blankline => continue,
                 E::End(_) => unreachable!(),
                 _ => bail!("Got invalid/unsupported event while parsing blocks: {e:?}"),
             };
+            // Add the element to the list
+            // If adding code here, note that not every loop makes it here, as sections and blanklines are skipped
             elements.push(elem);
         }
 
@@ -312,6 +338,11 @@ fn extract_footnotes(content: &mut Vec<Element>) -> Result<Vec<(String, Vec<Elem
                 None
             }
             Element::Code { .. } => None,
+            Element::Heading { text, .. } => {
+                text.iter_mut()
+                    .for_each(|e| number_references(e, &mut seen_referenced));
+                None
+            }
         };
         match removed_footnote {
             Some((tag, body)) => {
@@ -381,6 +412,9 @@ impl std::fmt::Display for Element {
             Element::Paragraph { text } => writeln!(f, "{}", text.to_string()),
             Element::Code { content, .. } => writeln!(f, "```\n{content}\n```"),
             Element::Footnote { .. } => writeln!(f, "BUG: footnote"),
+            Element::Heading { text, level, .. } => {
+                writeln!(f, "{} {}", "#".repeat(*level as usize), text.to_string())
+            }
         }
     }
 }

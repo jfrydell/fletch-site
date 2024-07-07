@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>D-Bus's Semi-Self-Describing Types</title>
+<url>dbustypes</url>
+<date>2024-07-07T20:00:00</date>
+<visibility>1</visibility>
+<content><![CDATA[
+A few weeks ago at work, I wrote some code interfacing with the [D-Bus](https://en.wikipedia.org/wiki/D-Bus) inter-process communication system. If, like me, you've never heard of D-Bus before, it's essentially a standardized way to send messages from one process to another, without needing to create a separate communication channel between every pair of programs. For example, the [Linux Bluetooth stack](https://www.bluez.org/) exposes an extensive D-Bus API, consisting of various D-Bus "objects" each exposing methods that can be called via D-Bus messages. The details of how D-Bus communicates between processes and integrates into the whole system are not important to this post; more info can be found at [the D-Bus site](https://www.freedesktop.org/wiki/Software/dbus/).
+
+Instead, the part of D-Bus that most caught my attention was its _type system_, which describes the types of objects that can be sent in a message and how these types are communicated. This type system has several properties I've never seen before.
+
+# Serialization and types
+
+Of course, D-Bus is hardly the first system to send data between programs. The problem of converting data from one program's native representation to a transferable sequence of bits is known as "serialization," and there are [many solutions](https://en.wikipedia.org/wiki/Comparison_of_data-serialization_formats), each specifying how values of various types are translated to binary.
+
+One of the most important decisions in the design of a serialization format is where the types of serialized values are specified. While there is some subtlety to this (as we'll see with D-Bus later on), formats can be broadly grouped into two categories. _Schema-based formats_ communicate the type of a value being sent (and types for any contained values) separately from the value itself. _Self-describing formats_, on the other hand, include the type of each value alongside the actual value.[^distinctionsubtleties]
+
+[^distinctionsubtleties]: This post is primarily concerned with how types affect the serialization process itself, and my use of these terms reflects that. Some serialization formats and frameworks use them slightly differently, referring to ecosystem-level questions of how communication is organized. In this view, schemas are primarily useful as a way to specify an API call's requirements or validate a message obeys these requirements, and self-definition is a question of whether a new observer can understand a message or document without being given a separately-specified schema.
+
+    For example, [Amazon Ion](https://amazon-ion.github.io/ion-docs/) supports [schemas](https://amazon-ion.github.io/ion-schema/docs/isl-2-0/spec), but they only specify constraints on an Ion value, rather than affecting how values are serialized into binary. On the other hand, [Apache Avro](https://avro.apache.org/docs/) is usually considered self-describing, but only because the schema required to read Avro values is either stored alongside the data (for files) or sent prior to the first message (for RPC). Both of these formats advertise themselves as both having schemas and being self-describing, but for our purposes, Ion is exclusively self-describing and Avro is exclusively schema-based.
+
+## Schema-based formats
+
+Schema-based formats define the serialization of values assuming both the sender/writer and receiver/reader have separately agreed on what type is being serialized. In addition to specifying basic types such as integers and strings, a serialization format will usually support containers like structs and lists, with the schema including the types of contained values (possibly recursively). For each type, the format independently specifies how the value should be serialized, without worrying about confusion with another type. This tends to map very well to statically-typed languages, particularly those with generic containers—take the following C++ example, defining a simple protocol for 32-bit integers, strings, structs (represented by tuples), and arrays.
+
+``` c++
+// Includes omitted, among other issues. `serialize_byte` writes one byte of our serialized data.
+extern void serialize_byte(uint8_t b);
+
+using MyByte = uint8_t;
+using MyInt = uint32_t;
+using MyString = std::string;
+template<typename... T>
+using MyStruct = std::tuple<T...>;
+template<typename T>
+using MyArray = std::vector<T>;
+
+void serialize(const MyByte& b) {
+    serialize_byte(b);
+}
+void serialize(const MyInt& i) {
+    serialize_byte(i & 0xFF);
+    serialize_byte((i >> 8) & 0xFF);
+    serialize_byte((i >> 16) & 0xFF);
+    serialize_byte((i >> 24) & 0xFF);
+}
+void serialize(const MyString& s) {
+    serialize((MyInt) s.size());
+    for (char c : s) {
+        serialize_byte(c);
+    }
+}
+template<typename T>
+void serialize(const MyArray<T>& arr) {
+    serialize((MyInt) arr.size());
+    for (const auto& element : arr) {
+        serialize(element);
+    }
+}
+template<typename... T>
+void serialize(const MyStruct<T...>& s) {
+    // Serialize each member
+    std::apply([&](const T&... args) {
+        (serialize(args), ...);
+    }, s);
+}
+
+// Serialize a struct containing an int, a string, and an array of ints
+using ExampleMessage = MyStruct<MyInt, MyString, MyArray<MyInt>>;
+void serialize_example_message(const ExampleMessage& m) {
+    serialize(m);
+}
+```
+
+The deserialization code follows a similar structure, with a function for each type reconstructing basic types byte-by-byte and containers element-by-element. See this footnote[^schemadeser] for details/code.
+
+[^schemadeser]: The main difficulty is specifying the type to deserialize; we can't use overloading when we don't have a value to pass in. For simple types, a specialized template function would work, but specializing for generic containers is impossible. A templated struct overcomes this limitation, as it allows [partial specialization](https://en.cppreference.com/w/cpp/language/partial_specialization) while keeping the container generic.
+
+                ```
+                extern uint8_t read_byte();
+
+                // For types not explicitly supported, throw an error
+                template<typename T> struct deserialize {
+                    static T get() {
+                        static_assert(!std::is_same_v<T, T>, "Type not supported");
+                    }
+                };
+                template<> struct deserialize<MyByte> {
+                    MyByte get() { return read_byte(); }
+                };
+                template<> struct deserialize<MyInt> {
+                    MyInt get() {
+                        MyInt a = read_byte(), b = read_byte(),
+                            c = read_byte(), d = read_byte();
+                        return a | (b << 8) | (c << 16) | (d << 24);
+                    }
+                };
+                template<> struct deserialize<MyString> {
+                    MyString get() {
+                        MyString result;
+                        MyInt size = deserialize<MyInt>();
+                        for (int i = 0; i < size; i++) {
+                            result.push_back(char(deserialize<MyByte>()));
+                        }
+                        return result;
+                    }
+                };
+                template<typename T> struct deserialize<MyArray<T>> {
+                    MyArray<T> get() {
+                        MyArray<T> result;
+                        MyInt size = deserialize<MyInt>();
+                        for (int i = 0; i < size; i++) {
+                            result.push_back(deserialize<T>());
+                        }
+                        return result;
+                    }
+                };
+                template<typename... T> struct deserialize<MyStruct<T...>> {
+                    MyStruct<T...> get() {
+                        return MyStruct<T...>(
+                            deserialize<T>(), ...
+                        );
+                    }
+                };
+                ```
+
+                Surprisingly (at least to me), this works for arbitrarily-deep nesting of `MyStruct`s and `MyArray`s (perhaps a topic of a future post).
+
+Schema-based formats have a number of advantages, particularly in performance. Because there is inherently less information being communicated than in self-describing formats, the serialized representation is more compact. For example, a struct containing four 8-bit integers can be serialized in 4 bytes, without worrying about confusing this with a 32-bit integer, the length of an array, or the start of some other type. Additionally, by generating code for a specific schema (as done above through C++ templates), the encoding/decoding process can be optimized for the schema. At a minimum, this will eliminate branches on which value is being read/written, and an optimizing compiler can perform more sophisticated optimizations—the `serialize_example_message` function above [compiles](https://godbolt.org/z/qK4K3xeed) into the two short loops you'd expect.
+
+## Self-describing formats
+
+Unlike schema-based formats, self-describing formats cannot assume all parties have separately communicated type information; hence, each value must describe itself. Usually, each value will dedicate some space to specifying the value's type from among the supported types. While the C++ serialization code above could easily be updated to include this, _de_serialization would be much trickier. Unlike schema-based formats, where you could call `deserialize<MyType>`, here we don't know what the type is until serialization has begun! In fact, there are some types supported by most self-describing formats that have no matching schema, such as the heterogeneous array: `["a string", 42, ["and another", "array"]]` conforms to no schema above, but is completely valid if types aren't specified until a value is reached.
+
+To represent these types, we'll want some kind of tagged union / variant / sum type we'll call `Value` representing any serializable value. In addition to storing strings and ints though, this must be able to store lists of `Value`s, i.e. it must be a recursive variant type. This is [a bit of a headache](https://stackoverflow.com/questions/39454347/using-stdvariant-with-recursion-without-using-boostrecursive-wrapper) for C++'s standard library variant (though it's not bad with Boost), but OCaml makes it easy:
+
+```
+external serialize_byte : char -> unit = "serialize_byte"
+
+type value =
+    MyByte of char
+  | MyInt of int32
+  | MyString of string
+  | MyArray of value list
+  | MyStruct of value list;;
+
+let rec serialize = function
+    (MyByte b) -> serialize_byte 'c'; serialize_byte b
+
+  | (MyInt i) -> serialize_byte 'i';
+      let bytes = Bytes.create 4 in
+          Bytes.set_int32_be bytes 0 i;
+          for i = 0 to 3 do serialize_byte (Bytes.get bytes i) done
+
+  | (MyString s) -> serialize_byte 's';
+      let len = String.length s in
+      serialize_byte (char_of_int len); (* Won't support strings >255 chars *)
+      for i = 0 to len - 1 do serialize_byte s.[i] done
+
+  | (MyArray a) -> serialize_byte 'a';
+      let len = List.length a in
+      serialize_byte (char_of_int len); (* Won't support arrays >255 elements *)
+      List.iter serialize a
+
+  | (MyStruct a) -> serialize_byte 't';
+      let len = List.length a in
+      serialize_byte (char_of_int len); (* Won't support structs >255 elements *)
+      List.iter serialize a
+```
+
+Note how we've lost the performance of schema-based formats (both in having to write explicit tags and in needing to branch on each value's type), but now can handle any value without knowing its type in advance, including heterogeneous arrays. In fact, our "struct" type isn't necessary in this self-describing format, as it's exactly equivalent to an array!
+
+While OCaml's type system can handle self-describing formats pretty well through variant types, these formats actually have a lot more in common with dynamically-typed programming languages. They both include type information alongside values, often need to check / branch on this type information to run the correct code, but give a bit more flexibility to producers of values (at the cost of potentially breaking consumers).
+
+# D-Bus's type system
+
+So, which of these two categories does the [D-Bus type system](https://dbus.freedesktop.org/doc/dbus-specification.html#type-system) fall into? Well, messages in D-Bus are all attached to some part of some "interface," which specifies the message's type(s). For example, the `org.bluez.Network` interface looks like this:
+
+```
+<interface name="org.bluez.mesh.Network1">
+    <method name="Connect">
+            <arg name="uuid" type="s" direction="in"/>
+            <arg name="name" type="s" direction="out"/>
+    </method>
+    <method name="Disconnect"></method>
+    <property name="Connected" type="b" access="read"></property>
+    <property name="Interface" type="s" access="read"></property>
+    <property name="UUID" type="s" access="read"></property>
+</interface>
+```
+
+So, a message calling the `Connect` method must pass in a string, and the return message will also contain a string. Because these types are known in advance, the [wire format](https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-marshaling) can omit them. However, let's take a look at another interface, the [standard](https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties) `org.freedesktop.DBus.Properties` interface:
+
+```
+<interface name="org.freedesktop.DBus.Properties">
+    <method name="Get">
+        <arg type="s" name="interface_name" direction="in"/>
+        <arg type="s" name="property_name" direction="in"/>
+        <arg type="v" name="value" direction="out"/>
+    </method>
+    <method name="GetAll">
+        <arg type="s" name="interface_name" direction="in"/>
+        <arg type="a{sv}" name="properties" direction="out"/>
+        <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QVariantMap" />
+    </method>
+    <method name="Set">
+        <arg type="s" name="interface_name" direction="in"/>
+        <arg type="s" name="property_name" direction="in"/>
+        <arg type="v" name="value" direction="in"/>
+    </method>
+    <signal name="PropertiesChanged">
+        <arg type="s" name="interface_name"/>
+        <arg type="a{sv}" name="changed_properties"/>
+        <arg type="as" name="invalidated_properties"/>
+    </signal>
+</interface>
+```
+
+The `Get` message takes the name of an interface and property on that interface (both strings), and returns _the value of that property_. This makes use of D-Bus's "variant" type, which can contain a value of any type, and includes a description ("signature") of the contained type for the recipient to use to decode it.
+
+When I first saw this, it seemed like a fairly straightforward middle ground between the two categories above. In most cases, a static schema can be used, preserving the performance and compactness of schema-based formats. But if we want to send a value whose type can vary or a heterogeneous array, we can wrap it in a variant, giving us the flexibility of self-describing formats when needed. However, it turns out that including just one self-describing type leads to a format very different from both the schema-based and self-describing ones we've seen before.
+
+For example, let's say we want to update our schema-based serializer to include this variant type. Before we write a `serialize` function for this variant type, we'll want a way to express it in our language itself. For C++, it seems like `std::variant` could work; we'll just need a list of the types that can be contained in a variant. Let's write them out:
+
+```
+std::variant<
+    MyByte,
+    MyInt,
+    MyString,
+    MyArray<MyByte>, // ?
+    MyArray<MyInt>,
+    MyArray<MyString>,
+    MyArray<MyArray<MyByte>>, // ??
+    MyArray<MyArray<MyStruct<MyInt, MyString, MyArray<MyByte>>>>, // ????
+    MyStruct<MyStruct<MyArray<MyStruct<MyArray<MyArray<MyStruct<MyArray<My..... // uh-oh
+```
+
+While D-Bus's 64-container depth limit means there's _technically_ only finitely many types possible, listing them all is still unfeasible. Essentially, handling the variant type completely requires us to be prepared for _any possible schema_, which is completely infeasible—even if we could represent a value containing one of ≈2^64 possible types, we'd still need a separately `serialize` function for each!
+
+Given the difficulties with adapting our schema-based solution, we might turn to the recursive variant–based solution we used for self-describing formats. This works a bit better than the previous attempt (in the sense that it is possible to get it working), but because we need to know the signature of the contained type for any variant, we'll need to include it in our language-level type as well:
+
+```
+external serialize_byte : char -> unit = "serialize_byte"
+type value =
+    MyByte of char
+  | MyInt of int32
+  | MyString of string
+  | MyArray of value list
+  | MyStruct of value list
+  | MyVariant of string * value;; (* Includes signature and value *)
+
+let rec serialize = function
+    (MyByte b) -> serialize_byte b
+
+  | (MyInt i) ->
+      let bytes = Bytes.create 4 in
+          Bytes.set_int32_be bytes 0 i;
+          for i = 0 to 3 do serialize_byte (Bytes.get bytes i) done
+
+  | (MyString s) ->
+      let len = String.length s in
+      serialize_byte (char_of_int len); (* Won't support strings >255 chars *)
+      for i = 0 to len - 1 do serialize_byte s.[i] done
+
+  | (MyArray a) ->
+      let len = List.length a in
+      serialize_byte (char_of_int len); (* Won't support arrays >255 elements *)
+      List.iter serialize a
+
+  | (MyStruct a) ->
+      let len = List.length a in
+      serialize_byte (char_of_int len); (* Won't support structs >255 elements *)
+      List.iter serialize a
+
+  | (MyVariant (s, v)) ->
+      String.iter serialize_byte s;
+      serialize v
+```
+
+As with the self-describing example above, this system of tagging each value with a type aligns closely with dynamically-typed languages. However, it has the unfortunate downside that it's very easy to serialize messages that don't follow their schema, ignoring either the top-level schema (which isn't included here) or an enclosing variant's signature. This can be amended by passing the expected type signature to the `serialize` function, then checking it matches and forwarding to recursive calls when necessary. This is the approach taken by many D-Bus language bindings, and the same forwarding of the signature is essentially required for deserialization code, where the expected signature must be given to know what type to deserialize.
+
+# My solution
+
+I encountered this type-system issue halfway through writing some bindings for D-Bus at [work](https://www.keytechinc.com/).[^low-level API] You'll have to judge for yourself where on the spectrum from "awful kludge" to "elegant solution" my workaround was, but it worked fairly well for the specific application.
+
+[^low-level API]: Note that the libdbus reference implementation's [_own documentation_](https://dbus.freedesktop.org/doc/api/html/index.html) describes using it as "signing up for some pain;" higher-level language bindings are much more convenient and usually simply better. After ignoring this advice completely, I can say that it wasn't _too_ bad, but exposing objects on the bus is a bit of a pain—aside from implementing the functionality (interfaces) you actually want to provide, you'll likely need to handle messages from the standard [introspection](https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-introspectable) and [property accessor](https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties) interfaces.
+
+Essentially, the issue with the C++ schema-based code is that we can't list all possible types a variant can hold. However, when we're _sending_ a message with a variant, we often know statically what type it holds (i.e. the interface specifies a variant, but we always serialize the same type). We can handle these cases with the following code, defining a wrapper that indicates that a (statically evaluated) type signature[^typestring] should be serialized before the type itself:
+
+[^typestring]: Generating these type signatures automatically using templates can also be helpful for generating introspection XML and templating the [libdbus `DBusMessageIter` methods](https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html).
+
+```
+/* ... continued from original C++ implementation above */
+
+template<typename T> struct MyVariantKnown {
+    T inner;
+};
+
+// Gets the signature of a type
+template<typename T> struct type_string {
+    static_assert(!std::is_same_v<T, T>, "Type not supported");
+};
+template<> struct type_string<MyByte> {
+    static inline std::string signature = "b";
+};
+template<> struct type_string<MyInt> {
+    static inline std::string signature = "i";
+};
+template<> struct type_string<MyString> {
+    static inline std::string signature = "s";
+};
+template<typename T> struct type_string<MyArray<T>> {
+    static inline std::string signature = "a" + type_string<T>::signature;
+};
+template<typename... T> struct type_string<MyStruct<T...>> {
+    static inline std::string signature = ("(" + ... + type_string<T>::signature) + ")";
+};
+template<typename T> struct type_string<MyVariantKnown<T>> {
+    static inline std::string signature = "v";
+};
+
+template<typename T>
+void serialize(const MyVariantKnown<T>& v) {
+    serialize(type_string<T>::signature);
+    serialize(v.inner);
+}
+```
+
+Of course, this won't work in cases where a written variant type isn't known, or when we're reading from a variant that can take on different values. Even in these cases, however, we seldom truly have an unbounded number of possible types; in all the interfaces my library had to support, variants were documented with a list of possible types. This means we actually _can_ use a `std::variant`, just including the types we actually need:[^templatevariant]
+
+[^templatevariant]: One could even template this variant type with a parameter pack. I didn't do so because it was used in various places where the ergonomic and code size costs weren't worth the benefit.
+
+```
+// Example variant, possible types free to vary
+using MyVariant = std::variant<MyInt, MyString, MyArray<MyByte>, MyArray<MyStruct<MyString, MyInt>>, MyStruct<MyInt, MyByte, MyString>>;
+
+void serialize(const MyVariant& v)
+{
+    // See [https://en.cppreference.com/w/cpp/utility/variant/visit]
+    std::visit([](const auto& arg)
+        {
+            using T = std::decay_t<decltype(arg)>;
+            serialize(MyVariantKnown<T>{ arg });
+        }, v);
+}
+// Deserialization (and fixing the bug in the first code sample that breaks this function) is left as an exercise to the reader
+```
+
+# Conclusion and language typing
+
+With that, we've reached the extent of my implementations of D-Bus-like serialization formats. I'm not sure what these somewhat schema-based, somewhat self-describing formats are called, and I wasn't able to find any discussion of them or other examples online, but I think it's a really interesting concept. As a serialization format, it's quite a nice way of preserving the compactness of schemas while preserving the full flexibility of self-describing formats when desired. However, I'm still unhappy with the two implementations I've found; it feels like this idea just doesn't map well to actual programming languages.
+
+Given this, the natural next step to me is to ask, "what would a programming language that works well with this serialization format look like?" Based on the role type signatures played in both designs, I think they'd also be essential to a language-level implementation. Perhaps rather than each value storing its own type tag, as in most dynamic languages, type tags/signatures would be passed alongside values into methods. Like D-Bus's system, this could save space, particularly for large homogeneous arrays (i.e. any containing a non-variant type), but each passed signature would be dynamically sized, so the indirection almost certainly wouldn't be worth it.[^indirection]
+
+[^indirection]: Though I suppose, by similar logic to my solution of variants containing only actually-used types, we can likely avoid dynamic allocation of type signatures. Assuming each operation yields an output whose type is a substring of some input type (or some global static type signature), all values' type signatures will be substrings of type signatures defined statically in the program. So, each type signature could be represented by a slice (i.e. start and end pointer) in a static region of memory.
+
+Anyway, that's a topic probably best left for another time. As always, if you have any thoughts, or have seen a type system like this before, please [let me know](http://localhost:3000/contact)!
+
+]]></content>
+</blogpost>

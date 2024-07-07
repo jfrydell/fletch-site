@@ -33,6 +33,8 @@
 {%- for element in content -%}
 {%- if element.t == "paragraph" -%}
 <p>{{ self::render_text(text = element.text) }}</p>
+{%- elif element.t == "heading" -%}
+<h{{ element.level + 2 }} id="{{ element.id }}">{{ self::render_text(text = element.text) }}</h{{ element.level + 2 }}>
 {%- elif element.t == "code" -%}
 <pre><code>{{ element.content }}</code></pre>
 {%- else -%}

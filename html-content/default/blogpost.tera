@@ -17,9 +17,9 @@
   {%- if post.content.footnotes | length > 0 -%}
   <footer>
     <hr>
-    <ol class="list-decimal pl-4">
+    <ol class="list-decimal pl-4 space-y-5">
     {%- for footnote in post.content.footnotes -%}
-        <li id="fn-def-{{ footnote[0] }}" class="pl-1">{{ self::render(content = footnote[1]) }}</li>
+        <li id="fn-def-{{ footnote[0] }}" class="pl-1 space-y-2">{{ self::render(content = footnote[1]) }}</li>
     {%- endfor -%}
     </ol>
   </footer>
@@ -32,8 +32,13 @@
 {%- for element in content -%}
 {%- if element.t == "paragraph" -%}
 <p class="leading-7">{{ self::render_text(text = element.text) }}</p>
+{%- elif element.t == "heading" -%}
+    {%- if element.level == 1 -%}{% set heading_size = `text-2xl` %}
+    {%- elif element.level == 2 -%}{% set heading_size = `text-xl` %}
+    {%- else -%}{% set heading_size = `text-lg` %}{%- endif -%}
+<h{{ element.level + 2 }} class="{{ heading_size }}" id="{{ element.id }}">{{ self::render_text(text = element.text) }}</h{{ element.level + 2 }}>
 {%- elif element.t == "code" -%}
-<pre class="bg-zinc-200 dark:bg-zinc-700"><code>{{ element.content }}</code></pre>
+<pre class="bg-zinc-200 dark:bg-zinc-700 whitespace-pre-wrap break-words"><code>{{ element.content }}</code></pre>
 {%- else -%}
 {{ VARIANT_DOESNT_EXIST[element.t] }}
 {%- endif -%}
