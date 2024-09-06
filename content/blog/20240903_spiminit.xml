@@ -32,7 +32,7 @@ If you're not familiar with MIPS assembly, the snippet above attempts to do two 
 
 Spim helpfully provides syscalls for the exact two things we want to do (unlike a real OS, for which "read a base 10 integer from the terminal" would almost always require significant code built on top of a more primitive `read` syscall). So, to print the prompt, all the code needs to do is load syscall number 4 into `$v0`, put a pointer to the string into `$a0`, and run the `syscall` instruction.
 
-Unfortunately, as shown above, the student's code forgot the `li $v0, 4` necessary to specify Spim's "print string" syscall. When Spim starts up, it initializes all registers to 0, so when the `syscall` is reached, `$v0` is equal to 0. Spim therefore attempts to run syscall 0, which does not exist, and it helpful stops executing the program with an error.
+Unfortunately, as shown above, the student's code forgot the `li $v0, 4` necessary to specify Spim's "print string" syscall. When Spim starts up, it initializes all registers to 0, so when the `syscall` is reached, `$v0` is equal to 0. Spim therefore attempts to run syscall 0, which does not exist, and it helpfully stops executing the program with an error.
 
 At least, that's what happened when running the program in Spim's interactive debugger. When running with `spim -file program.s`, the syscall worked perfectly. Somehow, `$v0` was getting set to 4 by the time the `syscall` was reached, despite nothing in the program setting it. Annoyingly, I couldn't use Spim to step through and see what caused this, as the unintuitive behavior only occurred when not debugging!
 
