@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blogpost>
+<title>An Undebuggable MIPS Program</title>
+<url>spiminit</url>
+<date>2024-09-05T20:00:00</date>
+<visibility>1</visibility>
+<content><![CDATA[
+A couple days ago, I was looking at some MIPS code that wasn't functioning properly for the [class I TA](https://web.archive.org/web/20240904043407/https://people.ee.duke.edu/~sorin/ece250/). For context, the class has one assignment involving writing some basic assembly code, and the MIPS instruction set is used for its simplicity. To run these MIPS programs, we use the excellent [Spim simulator](https://spimsimulator.sourceforge.net/), which emulates a machine supporting (a slightly simplified) MIPS while also acting as an assembler and basic debugger.
+
+However, upon trying to test a student's code in said debugger, I encountered something suprising: the code behaved differently depending on how I started Spim. When using `spim -file program.s` to assemble and run the program to completion, the program executed successfully, but produced the wrong output (that's why I was looking at it). However, when I loaded the program into Spim's interactive debugger with `spim` followed by `load "program.s"`, it failed with `Unknown system call: 0`.
+
+```
+# A simplified version of the failing program
+main:
+    # ...some setup omitted
+
+    la $a0, prompt     # Print a prompt to the user
+    syscall
+
+    li $v0, 5          # Syscall to read an integer from the command line
+    syscall
+
+    # rest of the program continued here...
+
+.data
+prompt: .asciiz "Enter a number: "
+```
+
+# Basic MIPS Syscalls
+
+If you're not familiar with MIPS assembly, the snippet above attempts to do two things: print something to the user, and read an integer from user input. Because both of these interface with the user, they need the help of the OS, which is accessed using the syscall mechanism and associated instruction. To make a syscall, a number identifying the OS routine being called is placed in the `$v0` register (usually with `li $v0, <NUMBER>`), arguments (if any) are passed in the `$a` registers, and the return value(s) are passed in `$v` registers (overwriting the syscall number).
+
+Spim helpfully provides syscalls for the exact two things we want to do (unlike a real OS, for which "read a base 10 integer from the terminal" would almost always require significant code built on top of a more primitive `read` syscall). So, to print the prompt, all the code needs to do is load syscall number 4 into `$v0`, put a pointer to the string into `$a0`, and run the `syscall` instruction.
+
+Unfortunately, as shown above, the student's code forgot the `li $v0, 4` necessary to specify Spim's "print string" syscall. When Spim starts up, it initializes all registers to 0, so when the `syscall` is reached, `$v0` is equal to 0. Spim therefore attempts to run syscall 0, which does not exist, and it helpful stops executing the program with an error.
+
+At least, that's what happened when running the program in Spim's interactive debugger. When running with `spim -file program.s`, the syscall worked perfectly. Somehow, `$v0` was getting set to 4 by the time the `syscall` was reached, despite nothing in the program setting it. Annoyingly, I couldn't use Spim to step through and see what caused this, as the unintuitive behavior only occurred when not debugging!
+
+# How does a program start?
+
+While we can't step through a successful execution of the program, we can step through the failing one and see what instructions are running. Doing this reveals the following:
+
+```
+(spim) load "program.s"
+(spim) step 7
+[0x00400000]	0x8fa40000  lw $4, 0($29)                   ; 183: lw $a0 0($sp)		# argc
+[0x00400004]	0x27a50004  addiu $5, $29, 4                ; 184: addiu $a1 $sp 4		# argv
+[0x00400008]	0x24a60004  addiu $6, $5, 4                 ; 185: addiu $a2 $a1 4		# envp
+[0x0040000c]	0x00041080  sll $2, $4, 2                   ; 186: sll $v0 $a0 2
+[0x00400010]	0x00c23021  addu $6, $6, $2                 ; 187: addu $a2 $a2 $v0
+[0x00400014]	0x0c100009  jal 0x00400024 [main]           ; 188: jal main
+[0x00400024]	0x3c011001  lui $1, 4097 [prompt]           ; 5: la $a0, prompt     # Print a prompt to the user
+```
+
+Notice that our `main` function doesn't start until 7 instructions in. These first 6 intructions are essentially a very lightweight runtime, not dissimilar from the [crt0](https://en.wikipedia.org/wiki/Crt0) linked into C programs by default.
+
+For Spim, this runtime is responsible for moving `argc`, `argv`, and `envp` (argument count, argument list, and environment variable list) from the stack to registers.
+
+Looking at the runtime code above, it looks like all three of these arguments are put above the stack before starting the process. First, line 183 loads the argument count from `0($sp)` (i.e. the first word above the stack). Then, line 184 sets `argv` (`$a1`) to 4 bytes above that, indicating that pointers to each argument are placed immediately above `argc`. Finally, line 185 through 187 calculate `envp = argv + 4 + 4 * argc` (arithmetic in bytes) in `$a2`, indicating that pointers to environment variables are placed after the argument pointers.[^offbyone]
+
+[^offbyone]: Actually, there seems to be a one-word gap between the last element of `argv` and the start of `envp`. For example, if `argc` is 0, `envp = argv` would be possible (the arguments take no space), but Spim's code gives `envp = argv + 4`. Looking at the [Spim source code](https://sourceforge.net/p/spimsimulator/code/764/tree/CPU/spim-utils.cpp#l264), this is due to NULL-terminating the `argv` array, presumably to make iteration simpler.
+
+As part of setting `envp`, the above code uses `$v0` to store the intermediate value `4 * argc`. So, if our program starts with `argc == 0`, `$v0` will be 0, and the `syscall` fails. But, if `argc == 1`, `$v0` is set to 4 by the initialization code, which happens to be the syscall number for printing a string.
+
+# Spim's Argument Handling
+
+So, the only remaining question is why `argc` differs when run with `spim -file program.s` vs in the interactive debugger.
+
+Looking at [the Spim source](https://sourceforge.net/p/spimsimulator/code/764/tree/spim/spim.cpp#l221), the answer is pretty simple: the `-file` argument passes all subsequent arguments (including the program name) into a `program_argv` variable, from which they are placed onto the stack as described above. So, our call using `-file` ends up with `argc = 1` and therefore `$v0 = 4`.
+
+However, when a program is started with the `run` commmand of the debugger, Spim's `program_argc` and `program_argv` remain at their default (zero) value. So, the same code leads to `$v0 = 0` at `main` startup, and our original program fails due to an invalid syscall.
+
+In fact, it looks like the `-file` handling is the only path where Spim sets the `program_argv` variable to be passed onto the MIPS stack. This is unfortunate, as—in addition to making it impossible to run the above program—this rules out debugging any program that requires command-line arguments.
+
+Luckily, there's a solution: QtSpim, the newest version of Spim, handles command-line arguments much more consistently than the command-line debugger. By default, it passes one argument on the stack: the absolute path of the loaded MIPS file. This alone means our motivating example runs equally well in QtSpim as with `spim -file program.s`. Even better, though, QtSpim includes the ability to add additional arguments via the "Simulator->Run Parameters" menu.
+
+This explains why I'd never run into this before (I'd think after watching over 500 students learn MIPS as a TA, we'd have run into every Spim issue there is). Almost everyone prefers QtSpim to the often unintuitive command line Spim. And after seeing this issue, I might have to agree!
+
+]]></content>
+</blogpost>

@@ -2,7 +2,7 @@
 {% block title %}{{ post.title }} - {{ super() }}{% endblock title %}
 
 {% block header %}
-<header class="font-sans mx-auto bg-sky-900 text-white text-center">
+<header class="mx-auto bg-sky-900 text-white text-center">
   <h1 class="text-3xl font-bold pt-14">Fletch Rydell's Blog</h1>
 </header>
 {% endblock %}

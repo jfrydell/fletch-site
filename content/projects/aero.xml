@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+<name>Duke AERO</name>
+<url>aero</url>
+<description>Designing a payload flight computer and broader electronics system for the Duke rocketry team.</description>
+<date>2023.08-2024.05</date>
+<skills>
+    <skill>Embedded Development</skill>
+    <skill>PCB Design</skill>
+    <skill>Radio Communication</skill>
+    <skill>Mechatronics</skill>
+    <skill>Control Systems</skill>
+</skills>
+<content>
+    <section>
+        <title>Overview</title>
+        <g>
+            <p><a href="https://dukerocketry.com/" trail="">Duke AERO</a>'s 2023–2024 rocket "Pitchfork" is a 10 foot long, 6 inch diameter, 80 pound rocket designed to deploy a payload at 10,000 feet. The payload deploys as a 60cm×10cm×10cm unit (6U <a trail="" href="https://en.wikipedia.org/wiki/CubeSat">CubeSat</a>) and splits into two 3U units which are independently recovered.</p>
+            <p>This year, I designed and programmed a custom flight computer for both halves of the payload, which handled deploying parachutes, triggering payload separation, controlling descent rate and rotation through a reefing parachute and gridfins, collecting various sensor data, and transmitting &amp; persistently logging telemetry data for recovery and analysis.</p>
+            <p>Ultimately, the actual flight computer we ended up with was fairly routine—interfacing with sensors, triggering servos, and transmitting data with off-the-shelf components is not rocket science, despite running inside a rocket. For more about the interesting parts of the payload, see <a href="https://www.grantweerts.com/projects/duke-aero/duke-aero-23-24" trail="">Grant's writeup</a>. Instead, this page describes some of the fairly specific problems I faced, mistakes I made, and solutions I found when building the flight computer, as a reference for future projects.</p>
+        </g>
+        <img src="aero/payload_open.jpg" alt="A rectangular blue box containing several metal and 3D printed parts, two servos, a circuit board, and some wires.">
+            <caption>One half-assembled half of the payload.</caption>
+        </img>
+    </section>
+    <criteria>
+        <title>Overall Results</title>
+        <item>
+            <title>Collected Data</title>
+            <description>After several hours of troubleshooting (mostly turning things off/on again and hoping that would magically repair them), the flight computer reliably captured GPS, altitude, and motion data from various sensors.</description>
+        </item>
+        <item>
+            <title>Designed a PCB</title>
+            <description>Sure, it was mostly just hooking up some through-hole components, and it took several fixes with a knife, a few loose wires, and some ugly soldering, but it was better than the mess of breadboard wire I'm used to!</description>
+        </item>
+        <item>
+            <title>Launched</title>
+            <description>Unfortunately, the rocket's main flight computer separated and deployed our main chute about 1000× too low (10 ft off the pad). On the plus side, the payload flight computer didn't do anything wrong (if only because it didn't get a chance to)!</description>
+        </item>
+    </criteria>
+    <section>
+        <title>Component Selection</title>
+        <g>
+            <p>From the start, I wanted to avoid making the electrical design work any more difficult than necessary. The physical requirements were fairly minimal: a few common sensors (a GPS, altimeter, and IMU), a LoRa transmitter for telemetry, a microcontroller, and a few output pins for servos and such. More important was reliability, as a single sensor failing or output failing to trigger could easily reduce the payload we had worked so hard to pack with functionality into a lifeless brick falling to the ground.</p>
+            <p>When combining the above with our team's relative inexperience with electrical design, we elected to use breakout boards for essentially all of our components. At the time, I hoped this would free up time to work on more complex functionality in firmware. In reality, I still managed to spend most of my time dealing with hardware issues, but I can only imagine how much worse it would've been with less plug-and-play components.</p>
+            <p>In particular, we used a <a href="https://www.adafruit.com/product/5401">ProS3</a> microcontroller, <a href="https://www.adafruit.com/product/4415">PA1010D</a> GPS receiver, <a href="https://www.adafruit.com/product/4633">LPS22</a> pressure sensor / altimeter, <a href="https://www.adafruit.com/product/4754">BNO085</a> IMU, <a href="https://www.adafruit.com/product/3072">RFM95</a> LoRa module, and <a href="https://www.digikey.com/en/products/detail/sparkfun-electronics/COM-21255/21703870">COM-21255</a> buck converter. All of these worked pretty well, and I have no specific complaints about any of them.</p>
+        </g>
+        <img src="garm/pcb.jpg" alt="A small PCB with through-holes for a microcontroller, several pin headers, and some resistors, as well as four mounting holes for the motor driver.">
+            <caption>TODO: replace image.</caption>
+        </img>
+    </section>
+    <section>
+        <title>Sensor Interfaces</title>
+        <g>
+            <p>Aside from the GPS, everything on the board was able to communicate with SPI, so I used a single SPI bus to connect the microcontroller, LoRa transceiver, IMU, and altimeter. All of these had associated libraries implementing most of the functionality we needed, which made things pretty easy.</p>
+            <p>However, several assumed the component would be the only thing on the SPI bus, which presented a few problems. For most, the only issue was providing an interface requiring pin numbers rather than a pre-initialized <a href="https://github.com/espressif/arduino-esp32/blob/4098c53f5fd1813ffa31867d3883e336f6fa6430/libraries/SPI/src/SPI.h#L44C7-L44C15">SPIClass</a>, which was pretty easy to patch. One had a more significant issue of using the SPI bus inside an interrupt handler, causing <a href="http://localhost:3000/blog/aerospithreadsafety">issues</a> if the bus was already in use.</p>
+            <p>Unlike everything else, the GPS used UART, so it was connected separately. I wasted many hours debugging problems with the GPS, which ultimately were due to two fairly simple causes. First, the GPS module intermittently required a fairly significant amount of current, enough that it couldn't get a fix when the board was powered by my laptop's USB port. Powering from a battery fixed the issue.</p>
+            <p>The second was a bit more complicated, if only because I wasted a lot of time overcomplicating things before stumbling on the obvious solution. The GPS chip would send a decent chunk of serial data in a text-based format, which had to be parsed into actual location and status data. Receiving this data was fairly unreliable, routinely missing a few bytes that caused parsing to fail.</p>
+            <p>Initially, I assumed this was due to other tasks (primarily the blocking LoRa library) blocking the main loop. So, I added threads, <a href="https://nedbatchelder.com/blog/201204/two_problems.html">which gave me some fun nep wroblemts ofi x</a>, but wasn't enough to make GPS data as reliable as we wanted. Then, in a stroke of competence, and with a unique combination of relief and disappointment, I realized I had been using <a href="https://forum.arduino.cc/t/arduino-pro-mini-hardware-serial-vs-software-serial/569503" trail="">a software serial receiver instead of the hardware one</a>. Making the 1 line update immediately fixed the problem.</p>
+        </g>
+    </section>
+    <section>
+        <title>Interlude: PCB Design</title>
+        <g>
+            <p>I've known for a while that I'm a better computer engineer than electrical engineer, but this project really solidified that. Compared to <a href="http://localhost:3000/projects/garmin">my first foray</a> into PCB design, this project was a big step up—from around 20 (mostly trivial) traces on a single layer to around 50 (slightly less trivial) traces on two layers.</p>
+            <p>Even this small step up in complexity proved nearly too much for me to handle. Due to misreading some notes, I connected an active-low reset pin to ground, continually resetting our LoRa chip. Additionally, when moving a few things around in the schematic to make use of separate voltage regulators, I accidentally forgot to rename one component's power pin label, which left it floating. Eventually, after scraping away the wrongly-connected reset pin trace (thanking the breakout board designers for the pull-up resistor) and soldering a short lead to connect the floating power pin (thanking my good fortune that it was so close to another 5V pin), I had a working PCB.</p>
+            <p>I was also often haunted by the computer programmer's worst enemy: the physical world. It turns out the PCB was a physical object, and therefore had to fit into the very space-constrained payload. Luckily, we just about crammed it in, with some compromises in easy of access and wiring.</p>
+        </g>
+        <img src="aero/pcb_fix.jpg" alt="A green PCB on a desk, with one trace roughly scratched out and two pins bridged with a piece of wire">
+            <caption>The PCB after a few repairs. Note that roughly scratched out trace in the middle, as well as the bridged pins on the right.</caption>
+        </img>
+    </section>
+    <section>
+        <title>Finishing Up the Code</title>
+        <g>
+            <p>After spending (wasting) a lot of time getting all the peripherals connected and reporting data, it was time to actually write the proper flight computer code. This included a main control loop to detect the different phases of flight (launch, apogee / payload deployment, payload separation / chute deployment, landing), activate everything at the right time, and send data back to the ground and store to nonvolatile memory.</p>
+            <p>Compared to my difficulties getting all the sensors working, this was a breeze (hopefully proving I'm not actually bad at computer engineering, just some of the electrical portion). Detecting launch phases was done with the altimeter (simple cutoff for launch and payload separation, change detetion for apogee and landing) with some fallbacks (based on IMU and altimeter) for important things like deploying parachutes.</p>
+            <p>For telemetry, we periodically transmitted any new logs as well as current sensor data at 10 second intervals before launch and after landing, and 1 second intervals during flight. Each message was broken into packets, numbered for detecting common packet delivery failures, and tagged with the data type (logs, detected flight state, sensor data) before being sent over LoRa. All telemetry data was also logged via <a href="https://github.com/littlefs-project/littlefs">LittleFS</a> to the microcontroller flash.</p>
+
+            <p>If the project had ended here, it would have been one of my favorites I've worked on. I got lots of learning experiences with the electrical side of things, an interesting application to write code for, and overall a fun thing to work on despite a few stressful moments (most notably: frying the microcontroller the day before scheduled launch).</p>
+        </g>
+    </section>
+    <section>
+        <title>Finishing Up</title>
+        <g>
+            <p>TODO: main control loop, communication over LoRa</p>
+        </g>
+    </section>
+    <section>
+        <title>Final Thoughts</title>
+        <g>
+            <p>This felt like my first "real" engineering project, with an actual client and team who were relying on me getting things done. While there is so much I would do differently if I could go back, overall it was a success, and I learned so much throughout the process. Here's some other pictures from the project:</p>
+            <gallery>
+                <img src="garm/pcb_soldered.jpg" alt="A small PCB with an ESP32 microcontroller and H-Bridge motor driver attached, along with several jumpers connecting the H-Bridge to the PCB.">
+                    <caption>The assembled PCB, with jumper cables attaching the screw terminals on the H-Bridge to the board. The 6-pin headers on top and bottom plug into the motors.</caption>
+                </img>
+                <img src="garm/deliverable.jpg" alt="The complete device leaned against a table, cropped to the electronics on the mounting plate in a closed waterproof box.">
+                    <caption>The main testing device all ready for delivery.</caption>
+                </img>
+                <img src="garm/boatrail.jpeg" alt="At a lake, on a docked boat, the testing device sits attached to metal rails running along the side of the boat.">
+                    <caption>The secondary (non-rotating) device mounted to the boat's railing for testing.</caption>
+                </img>
+                <img src="garm/done_electronics.jpg" alt="A small waterproof box attached to the metal mounting plate, containing a PCB, microcontroller, motor driver, and several wires connecting everything.">
+                    <caption>The complete electronic system for the primary testing rig, all installed on the PCB and stuffed into the waterproof casing.</caption>
+                </img>
+                <img src="garm/mess.jpg" alt="A large number of long wires connecting an H-Bridge motor driver, an ESP32 attached to a protoboard, and an early 3D-printed prototype of the rotation and depth adjustment mechanisms.">
+                    <caption>The complete mess of wires I was working with for the first 85% of the project. What was I thinking?</caption>
+                </img>
+                <img src="garm/meholding.jpg" alt="Me holding the long fiberglass rebar of testing device in an incomplete state, currently unfolding it to test the hinge.">
+                    <caption>The best picture I could find of me with the testing rig, taken pretty early into the design process while working on the folding mechanism.</caption>
+                </img>
+            </gallery>
+        </g>
+    </section>
+</content>
+<thumbnail>aero/thumbnail.jpg</thumbnail>
+<priority>-17</priority>
+</project>

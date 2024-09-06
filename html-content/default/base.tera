@@ -9,6 +9,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/defaulthtml/css.css" type="text/css">
   <link rel="alternate" type="application/atom+xml" href="/feed">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <script type="application/ld+json">
     {
       "@context" : "https://schema.org",
@@ -41,15 +44,15 @@
   {% endblock head %}
 </head>
 
-<body class="font-serif dark:bg-zinc-800 dark:text-zinc-200">
+<body class="dark:bg-zinc-800 dark:text-zinc-200" style="font-family: 'Montserrat', sans-serif;">
   {% block header %}
-  <header class="font-sans mx-auto bg-sky-900 text-white text-center">
+  <header class="mx-auto bg-sky-900 text-white text-center">
     <h1 class="text-5xl font-bold tracking-wide pt-14">{% block header_title %}{% endblock %}</h1>
-    <p class="text-xl p-5 pb-10 font-thin tracking-wide">{% block header_subtitle %}{% endblock %}</p>
+    <p class="text-xl p-5 pb-10 font-light tracking-wide">{% block header_subtitle %}{% endblock %}</p>
   </header>
   {% endblock header %}
 
-  <nav class="sticky top-0 w-full p-2 bg-sky-900 flex flex-row font-light font-sans text-white z-10">
+  <nav class="sticky top-0 w-full p-2 bg-sky-900 flex flex-row font-light text-white z-10">
     <a href="/" class="p-2 hover:text-sky-300">Home</a>
     <a href="/#projects" class="p-2 hover:text-sky-300">Projects</a>
     <a href="/#blog" class="p-2 hover:text-sky-300">Blog</a>
